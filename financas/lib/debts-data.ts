@@ -72,8 +72,13 @@ export async function loadDebts(supabase: SupabaseClient, onlyId?: string): Prom
   const [{ data: rows, error }, { data: chargeRows, error: chargeError }] = await Promise.all([debtsQuery, chargesQuery]);
   if (error || chargeError) throw new Error((error ?? chargeError)!.message);
 
-  const charges = (chargeRows ?? []).map(toCharge);
-  return (rows ?? []).map((row) =>
+  return mapDebts(rows ?? [], chargeRows ?? []);
+}
+
+/** Converte linhas de debts_overview + debt_charges em dívidas. */
+export function mapDebts(rows: OverviewRow[], chargeRows: OverviewRow[]): DebtRow[] {
+  const charges = chargeRows.map(toCharge);
+  return rows.map((row) =>
     toDebt(
       row,
       charges.filter((c) => c.debtId === row.id),

@@ -9,18 +9,22 @@ export async function loadFixedCosts(supabase: SupabaseClient, onlyId?: string):
   if (onlyId) query = query.eq("id", onlyId);
   const { data, error } = await query;
   if (error) throw new Error(error.message);
-  return (data ?? []).map((r) => ({
-    id: r.id,
-    name: r.name,
+  return (data ?? []).map(mapFixedCost);
+}
+
+export function mapFixedCost(r: Record<string, unknown>): FixedCostRow {
+  return {
+    id: r.id as string,
+    name: r.name as string,
     amountCents: Number(r.amount_cents),
-    dueDay: r.due_day,
+    dueDay: (r.due_day as number | null) ?? null,
     category: r.category as CostCategory,
-    ownerUserId: r.owner_user_id,
-    isApproximate: r.is_approximate,
-    active: r.active,
-    startsOn: r.starts_on,
-    notes: r.notes,
-  }));
+    ownerUserId: (r.owner_user_id as string | null) ?? null,
+    isApproximate: Boolean(r.is_approximate),
+    active: Boolean(r.active),
+    startsOn: (r.starts_on as string | null) ?? null,
+    notes: (r.notes as string | null) ?? null,
+  };
 }
 
 /** Gastos variáveis desde `since` (inclusive). */

@@ -1,5 +1,7 @@
 import Link from "next/link";
+import { AlertsCard } from "@/components/alerts-card";
 import { PlanVerdict } from "@/components/plan-verdict";
+import { interestOverPaid, overdueItems, upcomingDues } from "@/lib/finance/alerts";
 import { Card, Stat } from "@/components/ui";
 import { interestPaidThisMonth, loadDebts, loadPayments } from "@/lib/debts-data";
 import { diffDays, formatDateBR, formatMonthBR, monthStart, todayISO } from "@/lib/finance/dates";
@@ -23,6 +25,10 @@ export default async function PainelPage() {
     income.uber.filter((u) => u.workedOn <= today).reduce((s, u) => s + u.grossCents, 0) +
     income.entries.filter((e) => e.receivedOn <= today).reduce((s, e) => s + e.amountCents, 0);
   const totals = debtTotals(debts);
+  const paymentRefs = payments.map((p) => ({ debtId: p.debtId, paidOn: p.paidOn, amountCents: p.amountCents, interestCents: p.interestCents }));
+  const dues = upcomingDues(debts, paymentRefs, ctx.input.fixedCosts, today, 7);
+  const overdue = overdueItems(debts, paymentRefs, today);
+  const interestAlerts = interestOverPaid(debts, paymentRefs);
   const openInterest = debts
     .filter((d) => d.status !== "quitada")
     .reduce((s, d) => s + d.charges.reduce((x, c) => x + c.amountCents - c.paidCents, 0), 0);
@@ -60,6 +66,10 @@ export default async function PainelPage() {
           <Stat label="Juros do mês em aberto" value={formatBRL(openInterest)} tone="juros" hint="Agiotas e contas com multa" />
           <Stat label="Renda recebida no mês" value={formatBRL(receivedThisMonth)} tone="quitado" hint="Uber bruto + entradas" />
         </div>
+      )}
+
+      {(debts.length > 0 || ctx.input.fixedCosts.length > 0) && (
+        <AlertsCard today={today} dues={dues} overdue={overdue} interest={interestAlerts} />
       )}
 
       {plan ? (

@@ -1,7 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
-const PUBLIC_PATHS = ["/entrar"];
+const PUBLIC_PATHS = ["/entrar", "/api/cron"];
 
 /** Renova a sessão do Supabase a cada request e manda quem não está logado para /entrar. */
 export async function updateSession(request: NextRequest) {

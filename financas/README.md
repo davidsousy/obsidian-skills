@@ -1,7 +1,19 @@
 # Finanças da Casa
 
 Gestão financeira pessoal do David e da Paola, com foco em quitar as dívidas até uma data-alvo.
-Next.js (App Router) + TypeScript + Tailwind + Supabase. A proposta aprovada está em [`docs/PROPOSTA.md`](docs/PROPOSTA.md).
+Next.js (App Router) + TypeScript + Tailwind + Supabase (Postgres, Auth, RLS) + Recharts + Resend.
+A proposta aprovada está em [`docs/PROPOSTA.md`](docs/PROPOSTA.md).
+
+## Módulos
+
+- [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
+- [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
+- [x] 3. Custos fixos e variáveis (seed: R$ 10.931,00 por mês)
+- [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
+- [x] 5. Plano / data-alvo (renda necessária por fases, viabilidade, horas de Uber, data viável, avalanche, calendário)
+- [x] 6. Simulador (renda extra, horas de Uber, cortar custos, quitar agora, negociação com desconto)
+- [x] 7. Negociações (contatos e propostas; aceitar converte a dívida mantendo o histórico)
+- [x] 8. Alertas (na tela: vencimentos em 7 dias, atrasos, juros > pago; e-mail N dias antes via Resend)
 
 ## Rodar localmente
 
@@ -11,38 +23,76 @@ Pré-requisitos: Node 22 e Docker.
 npm install
 npm run db:start          # sobe o Supabase local e aplica as migrações
 cp .env.example .env.local
-# cole em NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY a "Publishable key" mostrada pelo `db:start`
+# preencha NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY e SUPABASE_SECRET_KEY com as chaves mostradas pelo db:start
 npm run dev               # http://localhost:3000
 ```
 
-Na primeira vez: crie a conta, crie a casa e mande o **código de convite** (em Configurações) para o outro membro.
+Primeiro acesso: crie a conta, crie a casa e mande o **código de convite** (Configurações) para o outro membro.
+Em Dívidas e em Custos há botões para carregar os dados combinados de outubro/2026.
 
 ## Testes
 
 ```bash
-npm test          # cálculos (lib/finance) — não precisa de banco
-npm run test:db   # RLS e funções SQL contra o Supabase local
+npm test          # cálculos (lib/finance): juros do agiota, avalanche, renda necessária, viabilidade, horas de Uber…
+npm run test:db   # RLS, funções SQL e job de alertas contra o Supabase local
 npm run typecheck
 npm run lint
 ```
+
+## Publicar (Supabase + Vercel + Resend)
+
+1. **Supabase** — crie um projeto em supabase.com (região São Paulo) e aplique as migrações:
+   ```bash
+   npx supabase login
+   npx supabase link --project-ref <ref-do-projeto>
+   npx supabase db push
+   ```
+   Em *Authentication → URL Configuration*, coloque a URL da Vercel em *Site URL*.
+   Se quiser entrar sem confirmar e-mail, desative *Confirm email* em *Authentication → Providers → Email*.
+2. **Resend** — crie a conta, verifique um domínio e gere uma API key. Sem domínio verificado, o Resend
+   só entrega para o e-mail dono da conta (o remetente de teste é `onboarding@resend.dev`).
+3. **Vercel** — importe o projeto (diretório raiz: `financas`) e configure as variáveis de ambiente:
+
+   | Variável | Onde pegar |
+   |---|---|
+   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
+   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → API Keys (publishable) |
+   | `SUPABASE_SECRET_KEY` | Supabase → API Keys (secret) — só servidor |
+   | `CRON_SECRET` | qualquer texto longo e aleatório |
+   | `RESEND_API_KEY` | Resend → API Keys |
+   | `ALERT_FROM_EMAIL` | ex.: `Finanças da Casa <alertas@seudominio.com.br>` |
+   | `APP_URL` | URL pública do app na Vercel |
+
+   O cron diário está em `vercel.json` (11:00 UTC = 08:00 em São Paulo) e chama `/api/cron/alertas`
+   com `Authorization: Bearer $CRON_SECRET`. Sem `RESEND_API_KEY` a rota só simula e devolve o que enviaria.
+   Para testar um dia específico: `GET /api/cron/alertas?data=2026-10-27` com o mesmo cabeçalho.
+
+## Regras de cálculo (resumo)
+
+- **Dinheiro em centavos** e datas no fuso de São Paulo.
+- **Agiota:** juros do mês = principal × taxa, lançados uma vez por mês (sem juros sobre juros); pagamento abate
+  primeiro os juros em aberto e o excedente reduz o principal. O saldo inclui os juros do mês ainda não pagos.
+- **Conta em atraso com taxa:** multa única + juros simples ao mês sobre o valor original.
+- **Parceladas:** cada pagamento abate o saldo; parcelas restantes = saldo ÷ parcela (arredondado para cima).
+  Sem nº de parcelas informado (carro), conta só a parcela do mês e ela é obrigatória todo mês no plano.
+- **Plano:** começa no mês seguinte. Em cada mês paga os mínimos (fixos, variáveis, parcelas, juros dos agiotas),
+  completa a reserva e manda o excedente pela ordem avalanche (agiotas por taxa → prioridade de risco
+  aluguel/condomínio/luz/água → com juros/multa → sem juros pelo menor saldo), ou pela ordem manual.
+- **Renda necessária:** em cada mês, o maior entre o mínimo do mês e a renda-base (a menor que quita tudo até a
+  data-alvo). Viabilidade compara a renda média real com o mês mais pesado: viável com folga ≥ margem
+  (padrão 10%), apertado entre 0 e a margem, inviável abaixo.
+- **Renda média real:** 90 dias; com 30+ dias de histórico usa o período coberto; antes disso, a estimativa das
+  Configurações. Gastos variáveis: média dos últimos meses completos (até 3), ou a estimativa.
+- **Uber:** líquido/h = bruto/h − custo do carro (categoria *carro*: recarga + limpeza) rateado pelas horas
+  (ou dias) rodados por mês nos últimos 30 dias.
 
 ## Estrutura
 
 | Pasta | Conteúdo |
 |---|---|
-| `lib/finance/` | motor de cálculo: funções puras, dinheiro em centavos, datas no fuso de São Paulo |
-| `lib/supabase/` | clients do Supabase (servidor e proxy de sessão) |
+| `lib/finance/` | motor de cálculo: funções puras e testadas (dívidas, custos, renda, plano, simulador, alertas) |
+| `lib/*-data.ts` | leitura do banco e conversão para os tipos do motor |
 | `supabase/migrations/` | schema, RLS e funções SQL |
-| `tests/db/` | testes de RLS (um usuário de fora da casa não lê nem grava nada) |
+| `tests/db/` | testes de RLS e funções SQL (um usuário de fora da casa não lê nem grava nada) |
 | `app/(app)/` | telas internas (exigem login e casa) |
-
-## Etapas
-
-- [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
-- [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
-- [x] 3. Custos (seed: R$ 10.931,00 por mês)
-- [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
-- [x] 5. Plano / data-alvo (renda necessária, viabilidade, horas de Uber, data viável, avalanche, calendário)
-- [x] 6. Simulador (renda extra, horas de Uber, cortar custos, quitar agora, negociação com desconto)
-- [x] 7. Negociações (contatos e propostas; aceitar converte a dívida mantendo o histórico)
-- [ ] 8. Alertas
+| `app/api/cron/alertas/` | job diário de e-mails |
