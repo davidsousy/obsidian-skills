@@ -41,7 +41,7 @@ npm run lint
 - [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
 - [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
 - [x] 3. Custos (seed: R$ 10.931,00 por mês)
-- [ ] 4. Renda
+- [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
 - [ ] 5. Plano / data-alvo
 - [ ] 6. Simulador
 - [ ] 7. Negociações

@@ -1,14 +1,23 @@
 import Link from "next/link";
 import { Card, Stat } from "@/components/ui";
 import { interestPaidThisMonth, loadDebts, loadPayments } from "@/lib/debts-data";
-import { formatDateBR, todayISO } from "@/lib/finance/dates";
+import { formatDateBR, monthStart, todayISO } from "@/lib/finance/dates";
+import { loadIncome } from "@/lib/income-data";
 import { debtTotals } from "@/lib/finance/debts";
 import { formatBRL } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
 
 export default async function PainelPage() {
   const { supabase, household, members } = await requireHousehold();
-  const [debts, payments] = await Promise.all([loadDebts(supabase), loadPayments(supabase)]);
+  const today = todayISO();
+  const [debts, payments, income] = await Promise.all([
+    loadDebts(supabase),
+    loadPayments(supabase),
+    loadIncome(supabase, monthStart(today)),
+  ]);
+  const receivedThisMonth =
+    income.uber.filter((u) => u.workedOn <= today).reduce((s, u) => s + u.grossCents, 0) +
+    income.entries.filter((e) => e.receivedOn <= today).reduce((s, e) => s + e.amountCents, 0);
   const totals = debtTotals(debts);
   const openInterest = debts
     .filter((d) => d.status !== "quitada")
@@ -18,7 +27,7 @@ export default async function PainelPage() {
     <div className="max-w-6xl space-y-6">
       <header>
         <h1 className="text-3xl font-bold">Painel</h1>
-        <p className="text-slate-500">Hoje é {formatDateBR(todayISO())}</p>
+        <p className="text-slate-500">Hoje é {formatDateBR(today)}</p>
       </header>
 
       {members.length === 1 && (
@@ -45,6 +54,7 @@ export default async function PainelPage() {
           <Stat label="Total em atraso" value={formatBRL(totals.overdue)} tone="atraso" />
           <Stat label="Juros pagos no mês" value={formatBRL(interestPaidThisMonth(payments))} tone="juros" />
           <Stat label="Juros do mês em aberto" value={formatBRL(openInterest)} tone="juros" hint="Agiotas e contas com multa" />
+          <Stat label="Renda recebida no mês" value={formatBRL(receivedThisMonth)} tone="quitado" hint="Uber bruto + entradas" />
         </div>
       )}
 
