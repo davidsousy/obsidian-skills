@@ -43,6 +43,6 @@ npm run lint
 - [x] 3. Custos (seed: R$ 10.931,00 por mês)
 - [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
 - [x] 5. Plano / data-alvo (renda necessária, viabilidade, horas de Uber, data viável, avalanche, calendário)
-- [ ] 6. Simulador
+- [x] 6. Simulador (renda extra, horas de Uber, cortar custos, quitar agora, negociação com desconto)
 - [ ] 7. Negociações
 - [ ] 8. Alertas
