@@ -39,7 +39,7 @@ npm run lint
 ## Etapas
 
 - [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
-- [ ] 2. Dívidas + pagamentos
+- [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
 - [ ] 3. Custos
 - [ ] 4. Renda
 - [ ] 5. Plano / data-alvo

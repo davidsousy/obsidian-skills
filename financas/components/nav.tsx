@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 // `ready: false` = módulo de uma etapa futura (aparece desabilitado).
 const items = [
   { href: "/painel", label: "Painel", ready: true },
-  { href: "/dividas", label: "Dívidas", ready: false },
+  { href: "/dividas", label: "Dívidas", ready: true },
   { href: "/custos", label: "Custos", ready: false },
   { href: "/renda", label: "Renda", ready: false },
   { href: "/plano", label: "Plano", ready: false },

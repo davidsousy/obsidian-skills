@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { ComponentProps, ReactNode } from "react";
 
 export function Card({ title, children, className = "" }: { title?: ReactNode; children: ReactNode; className?: string }) {
@@ -63,5 +64,44 @@ export async function FlashMessages({ searchParams }: { searchParams: Promise<{ 
       {erro && <Notice kind="erro">{erro}</Notice>}
       {ok && <Notice kind="ok">{ok}</Notice>}
     </>
+  );
+}
+
+export function Stat({
+  label,
+  value,
+  hint,
+  tone = "default",
+}: {
+  label: string;
+  value: ReactNode;
+  hint?: ReactNode;
+  tone?: "default" | "atraso" | "juros" | "parcelado" | "quitado";
+}) {
+  const color = {
+    default: "text-slate-900",
+    atraso: "text-atraso",
+    juros: "text-juros",
+    parcelado: "text-parcelado",
+    quitado: "text-quitado",
+  }[tone];
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+      <p className="text-sm font-medium text-slate-500">{label}</p>
+      <p className={`num mt-1 whitespace-nowrap text-2xl font-bold xl:text-3xl ${color}`}>{value}</p>
+      {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
+    </div>
+  );
+}
+
+export function LinkButton({ href, children, variant = "primary" }: { href: string; children: ReactNode; variant?: "primary" | "secondary" }) {
+  const styles =
+    variant === "primary"
+      ? "bg-slate-900 text-white hover:bg-slate-700"
+      : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100";
+  return (
+    <Link href={href} className={`inline-block rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${styles}`}>
+      {children}
+    </Link>
   );
 }
