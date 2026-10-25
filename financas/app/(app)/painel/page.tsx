@@ -1,20 +1,24 @@
 import Link from "next/link";
+import { PlanVerdict } from "@/components/plan-verdict";
 import { Card, Stat } from "@/components/ui";
 import { interestPaidThisMonth, loadDebts, loadPayments } from "@/lib/debts-data";
-import { formatDateBR, monthStart, todayISO } from "@/lib/finance/dates";
+import { diffDays, formatDateBR, monthStart, todayISO } from "@/lib/finance/dates";
 import { loadIncome } from "@/lib/income-data";
 import { debtTotals } from "@/lib/finance/debts";
 import { formatBRL } from "@/lib/finance/money";
+import { computePlan, loadPlanContext } from "@/lib/plan-data";
 import { requireHousehold } from "@/lib/session";
 
 export default async function PainelPage() {
   const { supabase, household, members } = await requireHousehold();
   const today = todayISO();
-  const [debts, payments, income] = await Promise.all([
+  const [debts, payments, income, ctx] = await Promise.all([
     loadDebts(supabase),
     loadPayments(supabase),
     loadIncome(supabase, monthStart(today)),
+    loadPlanContext(supabase, household),
   ]);
+  const plan = household.target_date ? computePlan(ctx, household.target_date, household.tight_margin_pct) : null;
   const receivedThisMonth =
     income.uber.filter((u) => u.workedOn <= today).reduce((s, u) => s + u.grossCents, 0) +
     income.entries.filter((e) => e.receivedOn <= today).reduce((s, e) => s + e.amountCents, 0);
@@ -58,12 +62,82 @@ export default async function PainelPage() {
         </div>
       )}
 
-      <Card title="Próximas etapas">
-        <p className="text-slate-600">
-          Renda do mês × necessária, próximos vencimentos, progresso até a data-alvo e o card “Quanto preciso ganhar”
-          aparecem aqui conforme os módulos de custos, renda e plano forem liberados.
-        </p>
-      </Card>
+      {plan ? (
+        <>
+          <PlanVerdict ctx={ctx} plan={plan} compact />
+          <Progress
+            paidPrincipal={payments.reduce((s, p) => s + p.principalCents, 0)}
+            remaining={totals.total}
+            start={household.created_at}
+            target={plan.target}
+            today={today}
+          />
+          <Card title="Renda do mês × necessária">
+            <Bar value={receivedThisMonth} max={plan.required.monthly} label={`${formatBRL(receivedThisMonth)} de ${formatBRL(plan.required.monthly)}`} />
+          </Card>
+        </>
+      ) : (
+        <Card title="Quanto preciso ganhar">
+          <p className="text-slate-600">
+            Defina a data em que quer estar sem dívidas no{" "}
+            <Link href="/plano" className="font-semibold underline">
+              Plano
+            </Link>{" "}
+            para ver a renda necessária e a viabilidade.
+          </p>
+        </Card>
+      )}
     </div>
+  );
+}
+
+function Bar({ value, max, label, tone = "bg-slate-800" }: { value: number; max: number; label: string; tone?: string }) {
+  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+  return (
+    <div>
+      <div className="h-4 overflow-hidden rounded-full bg-slate-100">
+        <div className={`h-4 rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+      </div>
+      <p className="num mt-1 text-sm text-slate-600">
+        {label} · {Math.round(pct)}%
+      </p>
+    </div>
+  );
+}
+
+function Progress({
+  paidPrincipal,
+  remaining,
+  start,
+  target,
+  today,
+}: {
+  paidPrincipal: number;
+  remaining: number;
+  start: string;
+  target: string;
+  today: string;
+}) {
+  const startDate = start.slice(0, 10);
+  const totalDays = Math.max(1, diffDays(startDate, target));
+  const elapsed = Math.min(totalDays, Math.max(0, diffDays(startDate, today)));
+  return (
+    <Card title={`Progresso até ${formatDateBR(target)}`}>
+      <div className="grid gap-6 md:grid-cols-2">
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-600">Dívidas quitadas</p>
+          <Bar
+            value={paidPrincipal}
+            max={paidPrincipal + remaining}
+            tone="bg-quitado"
+            label={`${formatBRL(paidPrincipal)} abatidos de ${formatBRL(paidPrincipal + remaining)}`}
+          />
+        </div>
+        <div>
+          <p className="mb-2 text-sm font-medium text-slate-600">Tempo até a data-alvo</p>
+          <Bar value={elapsed} max={totalDays} label={`${elapsed} de ${totalDays} dias · faltam ${totalDays - elapsed}`} />
+        </div>
+      </div>
+    </Card>
   );
 }

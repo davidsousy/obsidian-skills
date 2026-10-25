@@ -13,6 +13,7 @@ export type Household = {
   initial_variable_monthly_cents: number;
   initial_income_monthly_cents: number;
   invite_code: string;
+  created_at: string;
 };
 
 export type Member = {

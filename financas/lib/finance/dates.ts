@@ -102,3 +102,9 @@ export function formatMonthBR(date: ISODate): string {
   const { y, m } = parseISO(date);
   return `${monthNames[m - 1]}/${y}`;
 }
+
+/** Último dia do mês da data. */
+export function endOfMonthISO(date: ISODate): ISODate {
+  const { y, m } = parseISO(date);
+  return toISO(y, m, daysInMonth(y, m));
+}

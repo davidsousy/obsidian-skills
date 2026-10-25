@@ -9,7 +9,7 @@ const items = [
   { href: "/dividas", label: "Dívidas", ready: true },
   { href: "/custos", label: "Custos", ready: true },
   { href: "/renda", label: "Renda", ready: true },
-  { href: "/plano", label: "Plano", ready: false },
+  { href: "/plano", label: "Plano", ready: true },
   { href: "/simulador", label: "Simulador", ready: false },
   { href: "/configuracoes", label: "Configurações", ready: true },
 ];
