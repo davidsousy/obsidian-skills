@@ -4,7 +4,7 @@ import { Button, Card, Field, FlashMessages, Input } from "@/components/ui";
 import { addMonths, endOfMonthISO, formatDateBR, formatMonthBR } from "@/lib/finance/dates";
 import { debtBalance } from "@/lib/finance/debts";
 import { formatBRL, formatPercent } from "@/lib/finance/money";
-import { avalancheGroup, isPayable, planStart, priorityOrder } from "@/lib/finance/plan";
+import { avalancheGroup, breakdownOf, isPayable, planStart, priorityOrder } from "@/lib/finance/plan";
 import { computePlan, loadPlanContext } from "@/lib/plan-data";
 import { requireHousehold } from "@/lib/session";
 import { moveDebt, resetOrder, setTargetDate } from "./actions";
@@ -20,7 +20,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
   const manual = ctx.debts.some((d) => d.priorityOverride != null);
   const unknownInstallments = ctx.debts.filter((d) => d.status !== "quitada" && !isPayable(d));
   const minTarget = endOfMonthISO(planStart(ctx.today));
-  const b = plan?.required.breakdown;
+  const b = plan ? breakdownOf(plan.schedule.simulation) : null;
 
   return (
     <div className="max-w-6xl space-y-6">
@@ -85,13 +85,15 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
                   </div>
                 ))}
                 <div className="flex justify-between pt-1 text-base">
-                  <dt className="font-semibold">Renda necessária</dt>
-                  <dd className="font-bold">{formatBRL(plan.required.monthly)}</dd>
+                  <dt className="font-semibold">Renda necessária (média)</dt>
+                  <dd className="font-bold">
+                    {formatBRL(Math.round(plan.schedule.months.reduce((s, m) => s + m.income, 0) / plan.schedule.months.length))}
+                  </dd>
                 </div>
               </dl>
               <p className="mt-3 text-xs text-slate-500">
-                A renda necessária é um valor fixo por mês que paga todos os mínimos em todos os meses e quita tudo até a data. O mês
-                mais pesado define o valor; veja a coluna “Mínimo do mês” no calendário.
+                Em cada mês a renda necessária é o maior entre o mínimo do mês (fixos, parcelas e juros) e a renda-base de{" "}
+                {formatBRL(plan.schedule.base)}, que é a menor que quita tudo até a data.
               </p>
             </Card>
             <Card title="Resumo">
@@ -99,12 +101,12 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
                 <div className="flex justify-between border-b border-slate-100 pb-2">
                   <dt className="text-slate-600">Tudo quitado em (com a renda necessária)</dt>
                   <dd className="font-semibold">
-                    {plan.required.simulation.allPaidMonth ? formatMonthBR(plan.required.simulation.allPaidMonth) : "—"}
+                    {plan.schedule.simulation.allPaidMonth ? formatMonthBR(plan.schedule.simulation.allPaidMonth) : "—"}
                   </dd>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-2">
                   <dt className="text-slate-600">Total de juros pagos até o fim</dt>
-                  <dd className="font-semibold text-juros">{formatBRL(plan.required.simulation.totalInterest)}</dd>
+                  <dd className="font-semibold text-juros">{formatBRL(plan.schedule.simulation.totalInterest)}</dd>
                 </div>
                 <div className="flex justify-between border-b border-slate-100 pb-2">
                   <dt className="text-slate-600">Data mais próxima com a renda atual</dt>
@@ -160,7 +162,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {payable.map((d, i) => {
-                const reqMonth = plan?.required.simulation.payoffMonth[d.id];
+                const reqMonth = plan?.schedule.simulation.payoffMonth[d.id];
                 const curMonth = plan?.nearest.simulation.payoffMonth[d.id];
                 const rate = d.kind === "conta_em_atraso" ? d.lateInterestRate : d.monthlyRate;
                 return (
@@ -205,6 +207,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
               <thead className="text-left text-xs uppercase text-slate-500">
                 <tr>
                   <th className="py-2">Mês</th>
+                  <th className="py-2 text-right">Renda necessária</th>
                   <th className="py-2 text-right">Mínimo do mês</th>
                   <th className="py-2 text-right">Fixos + variáveis</th>
                   <th className="py-2 text-right">Parcelas</th>
@@ -216,11 +219,12 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {plan.required.simulation.months.map((m) => (
+                {plan.schedule.simulation.months.map((m) => (
                   <Fragment key={m.month}>
-                    <tr className={m.minimumRequired === plan.required.monthly ? "bg-parcelado-bg" : ""}>
+                    <tr className={m.income > ctx.realIncome.cents ? "bg-atraso-bg" : ""}>
                       <td className="py-2 font-medium">{formatMonthBR(m.month)}</td>
-                      <td className="py-2 text-right font-semibold">{formatBRL(m.minimumRequired)}</td>
+                      <td className="py-2 text-right font-semibold">{formatBRL(m.income)}</td>
+                      <td className="py-2 text-right">{formatBRL(m.minimumRequired)}</td>
                       <td className="py-2 text-right">{formatBRL(m.fixed + m.variable)}</td>
                       <td className="py-2 text-right">{formatBRL(m.installments)}</td>
                       <td className="py-2 text-right text-juros">{formatBRL(m.interest)}</td>
@@ -231,7 +235,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
                     </tr>
                     {m.paidOff.length > 0 && (
                       <tr className="border-t-0">
-                        <td colSpan={9} className="!whitespace-normal pb-2 text-xs text-quitado">
+                        <td colSpan={10} className="!whitespace-normal pb-2 text-xs text-quitado">
                           ✓ Quitadas em {formatMonthBR(m.month)}: {m.paidOff.join(", ")}
                         </td>
                       </tr>
@@ -241,7 +245,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-slate-500">Linha amarela = mês que define a renda necessária (o mais pesado).</p>
+          <p className="mt-2 text-xs text-slate-500">Linha vermelha = mês em que a renda média real não cobre a renda necessária.</p>
         </Card>
       )}
     </div>

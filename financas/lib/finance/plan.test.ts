@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FixedCost } from "./costs";
+import { monthsBetween } from "./dates";
 import { accrue, type Debt } from "./debts";
 import {
   extraUberHours,
@@ -8,6 +9,7 @@ import {
   planStart,
   priorityOrder,
   requiredIncome,
+  requiredSchedule,
   simulate,
   viability,
   type PlanDebt,
@@ -184,5 +186,46 @@ describe("viabilidade e horas de Uber", () => {
     expect(extraUberHours(-100000, 2500, 20)).toEqual({ perMonth: 40, perDay: 2 });
     expect(extraUberHours(5000, 2500, 20)).toBeNull();
     expect(extraUberHours(-100000, null, 20)).toBeNull();
+  });
+});
+
+describe("renda necessária por fases", () => {
+  const seedInput = (): PlanInput => ({
+    today: TODAY,
+    debts: seedDebts().map((d: Debt) => accrue(d, TODAY)),
+    fixedCosts: seedFixedCosts(),
+    variableMonthly: 0,
+    reserveTarget: 100000,
+    reserveBalance: 0,
+  });
+
+  it("cada mês recebe o maior entre o mínimo do mês e a renda-base", () => {
+    const s = requiredSchedule(seedInput(), "2027-06-30")!;
+    for (const m of s.simulation.months) expect(m.income).toBe(Math.max(m.minimumRequired, s.base));
+    expect(s.simulation.firstShortfallMonth).toBeNull();
+    expect(s.simulation.allPaidMonth! <= "2027-06-01").toBe(true);
+    expect(s.peak).toBe(2366400); // novembro continua sendo o mês mais pesado
+  });
+
+  it("a renda-base é a menor possível (R$ 1 a menos não quita no prazo)", () => {
+    const i = seedInput();
+    const s = requiredSchedule(i, "2027-06-30")!;
+    const fails = simulate(i, { maxMonths: 8, incomeFor: () => s.base - 100, floorToMinimum: true });
+    expect(fails.allPaidMonth === null || fails.allPaidMonth > "2027-06-01").toBe(true);
+  });
+
+  it("data-alvo mais longe → renda-base menor; fases agrupam meses iguais", () => {
+    const i = seedInput();
+    const jun = requiredSchedule(i, "2027-06-30")!;
+    const dez = requiredSchedule(i, "2027-12-31")!;
+    expect(dez.base).toBeLessThan(jun.base);
+    expect(jun.phases.at(-1)!.to).toBe("2027-06-01");
+    expect(jun.phases.reduce((n, p) => n + monthsBetween(p.from, p.to) + 1, 0)).toBe(8);
+  });
+
+  it("caso simples: parcelada 3 × R$ 1.000 → todos os meses R$ 1.000 (mínimo), base menor", () => {
+    const s = requiredSchedule(input([parcelada("p", 100000, 3)]), "2027-03-31")!;
+    expect(s.months.slice(0, 3).map((m) => m.income)).toEqual([100000, 100000, 100000]);
+    expect(s.peak).toBe(100000);
   });
 });

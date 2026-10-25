@@ -25,10 +25,22 @@ export function PlanVerdict({ ctx, plan, compact = false }: { ctx: PlanContext; 
     <section className={`rounded-xl border-2 p-5 ${s.box}`}>
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <p className="text-sm font-medium text-slate-600">Quanto preciso ganhar por mês</p>
-          <p className="num text-4xl font-bold">{formatBRL(plan.required.monthly)}</p>
-          <p className="text-sm text-slate-600">
-            para quitar tudo até {formatDateBR(plan.target)} ({plan.required.months} {plan.required.months === 1 ? "mês" : "meses"})
+          <p className="text-sm font-medium text-slate-600">
+            Quanto preciso ganhar para quitar tudo até {formatDateBR(plan.target)}
+          </p>
+          <ul className="mt-2 space-y-1">
+            {plan.schedule.phases.map((p) => (
+              <li key={p.from} className="flex flex-wrap items-baseline gap-x-3">
+                <span className="num text-3xl font-bold">{formatBRL(p.income)}</span>
+                <span className="text-sm text-slate-600">
+                  /mês {p.from === p.to ? `em ${formatMonthBR(p.from)}` : `de ${formatMonthBR(p.from)} a ${formatMonthBR(p.to)}`}
+                </span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-2 text-xs text-slate-500">
+            Os primeiros meses pesam mais por causa das parcelas e dos juros. Valor igual em todos os meses:{" "}
+            {formatBRL(plan.required.monthly)}.
           </p>
         </div>
         <span className={`rounded-full px-4 py-1.5 text-lg font-bold ${s.badge}`}>{s.label}</span>
@@ -41,10 +53,14 @@ export function PlanVerdict({ ctx, plan, compact = false }: { ctx: PlanContext; 
           <p className="text-xs text-slate-500">{incomeSourceLabel(ctx)}</p>
         </div>
         <div>
-          <p className="text-sm text-slate-600">{diff >= 0 ? "Folga por mês" : "Falta por mês"}</p>
+          <p className="text-sm text-slate-600">{diff >= 0 ? "Folga no mês mais pesado" : "Falta no mês mais pesado"}</p>
           <p className={`num text-2xl font-bold ${s.text}`}>{formatBRL(Math.abs(diff))}</p>
-          {diff >= 0 && plan.required.monthly > 0 && (
+          {diff >= 0 ? (
             <p className="text-xs text-slate-500">{h(plan.viability.margin * 100)}% acima do necessário</p>
+          ) : (
+            <p className="text-xs text-slate-500">
+              Falta em {plan.shortMonths.length} de {plan.schedule.months.length} meses
+            </p>
           )}
         </div>
         <div>
@@ -54,6 +70,7 @@ export function PlanVerdict({ ctx, plan, compact = false }: { ctx: PlanContext; 
           ) : plan.hours ? (
             <>
               <p className="num text-2xl font-bold">{h(plan.hours.perMonth)} h/mês</p>
+              <p className="text-xs text-slate-500">nos meses mais pesados</p>
               <p className="text-xs text-slate-500">
                 {plan.hours.perDay !== null && `≈ ${h(plan.hours.perDay)} h a mais por dia rodado · `}
                 líquido de {formatBRL(ctx.rates!.netPerHour)}/h

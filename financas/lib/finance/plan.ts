@@ -115,6 +115,8 @@ export type SimulateOptions = {
   fixedDeltaFor?: (index: number, month: ISODate) => Cents;
   /** Para de simular quando tudo estiver quitado. */
   stopWhenDone?: boolean;
+  /** Renda do mês nunca abaixo do mínimo do mês (renda necessária por fases). */
+  floorToMinimum?: boolean;
 };
 
 export function simulate(input: PlanInput, opts: SimulateOptions): SimulationResult {
@@ -136,13 +138,30 @@ export function simulate(input: PlanInput, opts: SimulateOptions): SimulationRes
     const month = addMonths(planStart(input.today), i);
     debts = debts.map((d) => (d.status === "quitada" ? d : accrue(d, month)));
 
-    const income = opts.incomeFor(i, month);
     const fixed = fixedTotalForMonth(input.fixedCosts, month) + (opts.fixedDeltaFor?.(i, month) ?? 0);
     const variable = input.variableMonthly;
+
+    // mínimos: juros em aberto dos agiotas (maior taxa primeiro), depois parcelas do mês
+    const minimums: { d: PlanDebt; amount: Cents }[] = [];
+    for (const d of priorityOrder(debts.filter((x) => x.status !== "quitada"))) {
+      if (d.kind === "juros_sobre_principal") {
+        const open = d.charges.reduce((s, c) => s + c.amountCents - c.paidCents, 0);
+        if (open > 0) minimums.push({ d, amount: open });
+      }
+    }
+    for (const d of debts) {
+      if (d.status !== "quitada" && isInstallment(d)) {
+        minimums.push({ d, amount: Math.min(d.installmentCents ?? 0, debtBalance(d)) });
+      }
+    }
+    const minimumRequired = fixed + variable + minimums.reduce((s, m) => s + m.amount, 0);
+
+    const base = opts.incomeFor(i, month);
+    const income = opts.floorToMinimum ? Math.max(base, minimumRequired) : base;
     let cash = income - fixed - variable;
     const r: MonthResult = {
       month, income, fixed, variable, installments: 0, interest: 0, extra: 0, reserve: 0, leftover: 0,
-      shortfall: 0, minimumRequired: 0, payments: [], paidOff: [], remainingDebt: 0,
+      shortfall: 0, minimumRequired, payments: [], paidOff: [], remainingDebt: 0,
     };
 
     const pay = (d: PlanDebt, amount: Cents, minimum: boolean) => {
@@ -168,20 +187,7 @@ export function simulate(input: PlanInput, opts: SimulateOptions): SimulationRes
       }
     };
 
-    // 2. mínimos: juros em aberto dos agiotas (maior taxa primeiro), depois parcelas do mês
-    const minimums: { d: PlanDebt; amount: Cents }[] = [];
-    for (const d of priorityOrder(debts.filter((x) => x.status !== "quitada"))) {
-      if (d.kind === "juros_sobre_principal") {
-        const open = d.charges.reduce((s, c) => s + c.amountCents - c.paidCents, 0);
-        if (open > 0) minimums.push({ d, amount: open });
-      }
-    }
-    for (const d of debts) {
-      if (d.status !== "quitada" && isInstallment(d)) {
-        minimums.push({ d, amount: Math.min(d.installmentCents ?? 0, debtBalance(d)) });
-      }
-    }
-    r.minimumRequired = fixed + variable + minimums.reduce((s, m) => s + m.amount, 0);
+    // 2. paga os mínimos
     for (const { d, amount } of minimums) {
       const current = debts.find((x) => x.id === d.id)!;
       const paid = Math.max(0, Math.min(amount, cash));
@@ -259,21 +265,65 @@ export function requiredIncome(input: PlanInput, target: ISODate): RequiredIncom
   }
   const monthly = hi * 100;
   const simulation = simulate(input, { maxMonths: months, incomeFor: () => monthly });
-  const avg = (f: (m: MonthResult) => number) => Math.round(simulation.months.reduce((s, m) => s + f(m), 0) / months);
+  return { monthly, months, breakdown: breakdownOf(simulation), simulation };
+}
+
+/** Média por mês de cada componente da renda numa simulação. */
+export function breakdownOf(sim: SimulationResult): RequiredIncome["breakdown"] {
+  const n = Math.max(1, sim.months.length);
+  const avg = (f: (m: MonthResult) => number) => Math.round(sim.months.reduce((s, m) => s + f(m), 0) / n);
   return {
-    monthly,
-    months,
-    breakdown: {
-      fixed: avg((m) => m.fixed),
-      variable: avg((m) => m.variable),
-      installments: avg((m) => m.installments),
-      interest: avg((m) => m.interest),
-      extra: avg((m) => m.extra),
-      reserve: avg((m) => m.reserve),
-      slack: avg((m) => m.leftover),
-    },
-    simulation,
+    fixed: avg((m) => m.fixed),
+    variable: avg((m) => m.variable),
+    installments: avg((m) => m.installments),
+    interest: avg((m) => m.interest),
+    extra: avg((m) => m.extra),
+    reserve: avg((m) => m.reserve),
+    slack: avg((m) => m.leftover),
   };
+}
+
+export type Phase = { from: ISODate; to: ISODate; income: Cents };
+
+export type RequiredSchedule = {
+  base: Cents; // renda-base: vale nos meses em que o mínimo do mês é menor
+  peak: Cents; // mês mais pesado
+  months: { month: ISODate; income: Cents }[];
+  phases: Phase[]; // meses consecutivos com a mesma renda
+  simulation: SimulationResult;
+};
+
+/**
+ * Renda necessária por fases: em cada mês, o maior entre o mínimo do mês e uma renda-base.
+ * A renda-base é a menor que quita tudo até o fim do mês da data-alvo.
+ */
+export function requiredSchedule(input: PlanInput, target: ISODate): RequiredSchedule | null {
+  const months = monthsUntil(input.today, target);
+  if (months < 1) return null;
+  const lastMonth = addMonths(planStart(input.today), months - 1);
+  const run = (base: Cents) => simulate(input, { maxMonths: months, incomeFor: () => base, floorToMinimum: true });
+  const ok = (base: Cents) => {
+    const sim = run(base);
+    return sim.firstShortfallMonth === null && sim.allPaidMonth !== null && sim.allPaidMonth <= lastMonth;
+  };
+  let lo = -1;
+  let hi = 1_000_000;
+  while (!ok(hi * 100)) hi *= 2;
+  while (hi - lo > 1) {
+    const mid = Math.floor((lo + hi) / 2);
+    if (ok(mid * 100)) hi = mid;
+    else lo = mid;
+  }
+  const base = hi * 100;
+  const simulation = run(base);
+  const list = simulation.months.map((m) => ({ month: m.month, income: m.income }));
+  const phases: Phase[] = [];
+  for (const m of list) {
+    const last = phases.at(-1);
+    if (last && last.income === m.income) last.to = m.month;
+    else phases.push({ from: m.month, to: m.month, income: m.income });
+  }
+  return { base, peak: Math.max(...list.map((m) => m.income)), months: list, phases, simulation };
 }
 
 export type Viability = "viavel" | "apertado" | "inviavel";

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PlanVerdict } from "@/components/plan-verdict";
 import { Card, Stat } from "@/components/ui";
 import { interestPaidThisMonth, loadDebts, loadPayments } from "@/lib/debts-data";
-import { diffDays, formatDateBR, monthStart, todayISO } from "@/lib/finance/dates";
+import { diffDays, formatDateBR, formatMonthBR, monthStart, todayISO } from "@/lib/finance/dates";
 import { loadIncome } from "@/lib/income-data";
 import { debtTotals } from "@/lib/finance/debts";
 import { formatBRL } from "@/lib/finance/money";
@@ -73,7 +73,11 @@ export default async function PainelPage() {
             today={today}
           />
           <Card title="Renda do mês × necessária">
-            <Bar value={receivedThisMonth} max={plan.required.monthly} label={`${formatBRL(receivedThisMonth)} de ${formatBRL(plan.required.monthly)}`} />
+            <Bar
+              value={receivedThisMonth}
+              max={plan.schedule.months[0].income}
+              label={`${formatBRL(receivedThisMonth)} recebidos de ${formatBRL(plan.schedule.months[0].income)} (necessário em ${formatMonthBR(plan.schedule.months[0].month)})`}
+            />
           </Card>
         </>
       ) : (
