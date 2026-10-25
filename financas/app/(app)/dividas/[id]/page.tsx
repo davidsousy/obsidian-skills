@@ -2,7 +2,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { groupStyle, RiskBadge, StatusBadge } from "@/components/debt-badges";
 import { Button, Card, Field, FlashMessages, Input, LinkButton } from "@/components/ui";
+import { NegotiationsSection } from "@/components/negotiations";
 import { loadDebts, loadPayments } from "@/lib/debts-data";
+import { loadNegotiations } from "@/lib/negotiations-data";
 import { formatDateBR, formatMonthBR, todayISO } from "@/lib/finance/dates";
 import { debtGroup, interestByMonth, KIND_LABEL, presentValue } from "@/lib/finance/debts";
 import { formatAmount, formatBRL, formatPercent } from "@/lib/finance/money";
@@ -22,7 +24,11 @@ export default async function DividaPage({ params, searchParams }: PageProps<"/d
   const { id } = await params;
   if (!/^[0-9a-f-]{36}$/.test(id)) notFound();
   const { supabase, members } = await requireHousehold();
-  const [[debt], payments] = await Promise.all([loadDebts(supabase, id), loadPayments(supabase, id)]);
+  const [[debt], payments, neg] = await Promise.all([
+    loadDebts(supabase, id),
+    loadPayments(supabase, id),
+    loadNegotiations(supabase, id),
+  ]);
   if (!debt) notFound();
 
   const names = new Map(members.map((m) => [m.user_id, m.display_name]));
@@ -192,6 +198,15 @@ export default async function DividaPage({ params, searchParams }: PageProps<"/d
           </table>
         </Card>
       )}
+
+      <NegotiationsSection
+        debtId={debt.id}
+        debtStatus={debt.status}
+        dueDay={debt.dueDay}
+        negotiations={neg.negotiations}
+        revisions={neg.revisions}
+        names={names}
+      />
 
       <div className="flex flex-wrap items-center justify-between gap-4">
         <LinkButton href={`/dividas/${debt.id}/editar`} variant="secondary">

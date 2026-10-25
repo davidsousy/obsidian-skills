@@ -44,5 +44,5 @@ npm run lint
 - [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
 - [x] 5. Plano / data-alvo (renda necessária, viabilidade, horas de Uber, data viável, avalanche, calendário)
 - [x] 6. Simulador (renda extra, horas de Uber, cortar custos, quitar agora, negociação com desconto)
-- [ ] 7. Negociações
+- [x] 7. Negociações (contatos e propostas; aceitar converte a dívida mantendo o histórico)
 - [ ] 8. Alertas
