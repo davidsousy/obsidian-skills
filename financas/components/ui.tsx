@@ -1,0 +1,67 @@
+import type { ComponentProps, ReactNode } from "react";
+
+export function Card({ title, children, className = "" }: { title?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={`rounded-xl border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+      {title && <h2 className="mb-4 text-base font-semibold text-slate-700">{title}</h2>}
+      {children}
+    </section>
+  );
+}
+
+export function Field({ label, hint, children }: { label: string; hint?: string; children: ReactNode }) {
+  return (
+    <label className="block">
+      <span className="mb-1 block text-sm font-medium text-slate-700">{label}</span>
+      {children}
+      {hint && <span className="mt-1 block text-xs text-slate-500">{hint}</span>}
+    </label>
+  );
+}
+
+export function Input(props: ComponentProps<"input">) {
+  return (
+    <input
+      {...props}
+      className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 ${props.className ?? ""}`}
+    />
+  );
+}
+
+export function Select(props: ComponentProps<"select">) {
+  return (
+    <select
+      {...props}
+      className={`w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 outline-none focus:border-slate-500 focus:ring-2 focus:ring-slate-200 ${props.className ?? ""}`}
+    />
+  );
+}
+
+export function Button({ variant = "primary", ...props }: ComponentProps<"button"> & { variant?: "primary" | "secondary" }) {
+  const styles =
+    variant === "primary"
+      ? "bg-slate-900 text-white hover:bg-slate-700"
+      : "border border-slate-300 bg-white text-slate-800 hover:bg-slate-100";
+  return (
+    <button
+      {...props}
+      className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors disabled:opacity-50 ${styles} ${props.className ?? ""}`}
+    />
+  );
+}
+
+export function Notice({ kind, children }: { kind: "erro" | "ok"; children: ReactNode }) {
+  const styles = kind === "erro" ? "border-red-200 bg-atraso-bg text-red-800" : "border-green-200 bg-quitado-bg text-green-800";
+  return <p className={`rounded-lg border px-4 py-3 text-sm ${styles}`}>{children}</p>;
+}
+
+/** Mostra ?erro= / ?ok= vindos de um redirect de server action. */
+export async function FlashMessages({ searchParams }: { searchParams: Promise<{ erro?: string; ok?: string }> }) {
+  const { erro, ok } = await searchParams;
+  return (
+    <>
+      {erro && <Notice kind="erro">{erro}</Notice>}
+      {ok && <Notice kind="ok">{ok}</Notice>}
+    </>
+  );
+}
