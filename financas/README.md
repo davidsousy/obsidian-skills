@@ -40,7 +40,7 @@ npm run lint
 
 - [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
 - [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
-- [ ] 3. Custos
+- [x] 3. Custos (seed: R$ 10.931,00 por mês)
 - [ ] 4. Renda
 - [ ] 5. Plano / data-alvo
 - [ ] 6. Simulador

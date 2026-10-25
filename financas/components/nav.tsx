@@ -7,7 +7,7 @@ import { usePathname } from "next/navigation";
 const items = [
   { href: "/painel", label: "Painel", ready: true },
   { href: "/dividas", label: "Dívidas", ready: true },
-  { href: "/custos", label: "Custos", ready: false },
+  { href: "/custos", label: "Custos", ready: true },
   { href: "/renda", label: "Renda", ready: false },
   { href: "/plano", label: "Plano", ready: false },
   { href: "/simulador", label: "Simulador", ready: false },
