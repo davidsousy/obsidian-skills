@@ -33,7 +33,12 @@ Em "Mais": Calendário de vencimentos, Renda, Plano, Simulador e Configurações
 
 ## Rodar localmente
 
-Pré-requisitos: Node 22 e Docker.
+**Para usar no seu computador (sem programar):** siga [`COMO-RODAR-NO-COMPUTADOR.md`](COMO-RODAR-NO-COMPUTADOR.md) —
+dois cliques em `rodar-local.bat` (Windows) ou `rodar-local.command` (Mac). O script confere Node e Docker, liga o
+Supabase local, gera o `.env.local`, compila (só quando algo mudou) e abre http://localhost:3000; mostra também o
+endereço para abrir no celular na mesma rede. `parar-local` desliga o banco sem apagar os dados.
+
+Para desenvolver — pré-requisitos: Node 22 e Docker.
 
 ```bash
 npm install

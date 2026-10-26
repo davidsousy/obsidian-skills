@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { parsePerson, PEOPLE, personCredentials, PERSON_COOKIE } from "@/lib/auto-auth";
 import { bootstrapHousehold } from "@/lib/bootstrap";
@@ -16,7 +16,8 @@ export async function switchPerson(formData: FormData) {
     maxAge: 60 * 60 * 24 * 365,
     sameSite: "lax",
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    // só HTTPS (Vercel); rodando no computador e aberto pelo celular via http://IP:3000, o cookie precisa valer em HTTP
+    secure: (await headers()).get("x-forwarded-proto") === "https",
   });
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });

@@ -1,0 +1,5 @@
+# Windows precisa de CRLF nos .bat/.ps1; Mac/Linux, de LF nos scripts de shell
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+*.sh text eol=lf
+*.command text eol=lf
