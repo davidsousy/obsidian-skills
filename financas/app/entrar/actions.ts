@@ -25,7 +25,7 @@ export async function signUp(formData: FormData) {
   const origin = (await headers()).get("origin") ?? "";
   const { data, error } = await supabase.auth.signUp({
     ...credentials(formData),
-    options: origin ? { emailRedirectTo: `${origin}/entrar` } : undefined,
+    options: origin ? { emailRedirectTo: `${origin}/auth/callback` } : undefined,
   });
   if (error) redirect(withParam("/entrar", "erro", friendlyError(error.message)));
   if (!data.session) {

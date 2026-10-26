@@ -11,8 +11,8 @@
     "test:db": "vitest run --project db",
     "test:watch": "vitest --project unit",
     "typecheck": "next typegen && tsc --noEmit",
-    "db:start": "supabase start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit",
-    "db:reset": "supabase db reset"
+    "db:start": "npx supabase@2.122.0 start -x studio,imgproxy,storage-api,realtime,edge-runtime,logflare,vector,supavisor,postgres-meta,mailpit",
+    "db:reset": "npx supabase@2.122.0 db reset"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.7",
@@ -31,7 +31,6 @@
     "eslint": "^9",
     "eslint-config-next": "^16.4.3",
     "pg": "^8.23.1",
-    "supabase": "^2.122.0",
     "tailwindcss": "^4",
     "typescript": "^5",
     "vitest": "^5.0.5"

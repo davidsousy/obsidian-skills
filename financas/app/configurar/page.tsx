@@ -18,8 +18,12 @@ export default function ConfigurarPage() {
           (região São Paulo). As variáveis do banco são criadas sozinhas.
         </li>
         <li>
-          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>supabase/setup.sql</code> e rode. Em{" "}
-          <strong>Authentication → URL Configuration</strong>, coloque a URL deste site em <em>Site URL</em>.
+          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>supabase/setup.sql</code> e rode (uma vez só).
+        </li>
+        <li>
+          Ainda no Supabase: em <strong>Authentication → Sign In / Providers → Email</strong>, desligue{" "}
+          <strong>Confirm email</strong>; em <strong>Authentication → URL Configuration</strong>, coloque a URL deste site em{" "}
+          <em>Site URL</em>.
         </li>
         <li>
           Na Vercel, faça um novo deploy (<strong>Deployments → Redeploy</strong>).

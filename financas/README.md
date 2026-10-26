@@ -21,7 +21,7 @@ Pré-requisitos: Node 22 e Docker.
 
 ```bash
 npm install
-npm run db:start          # sobe o Supabase local e aplica as migrações
+npm run db:start          # sobe o Supabase local (via npx supabase@2.122.0) e aplica as migrações
 cp .env.example .env.local
 # preencha NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY e SUPABASE_SECRET_KEY com as chaves mostradas pelo db:start
 npm run dev               # http://localhost:3000
@@ -43,20 +43,24 @@ npm run lint
 
 ### Jeito rápido (um link)
 
-[![Deploy com Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fclaude%2Ffinancial-debt-management-system-9rxgb9%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)
+[![Deploy com Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fapp-financas%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa&products=%5B%7B%22type%22%3A%22integration%22%2C%22protocol%22%3A%22storage%22%2C%22productSlug%22%3A%22supabase%22%2C%22integrationSlug%22%3A%22supabase%22%7D%5D)
 
-1. Clique no botão, entre na Vercel e confirme. Ele cria um repositório só com o app e um projeto na Vercel.
-2. No mesmo fluxo, aceite criar o **Supabase** (região São Paulo). As variáveis do banco são preenchidas sozinhas.
+1. Clique no botão, entre na Vercel e confirme. Ele cria um repositório só com o app (`financas-da-casa`) e o projeto na Vercel.
+2. No mesmo fluxo, aceite criar o **Supabase** (região São Paulo, plano Free). As variáveis do banco são preenchidas sozinhas.
+   Se essa etapa não aparecer: depois do deploy, vá em *Storage → Create Database → Supabase* e faça *Redeploy*.
 3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*):
-   - **SQL Editor:** cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run*;
+   - **SQL Editor:** cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (uma vez só);
+   - **Authentication → Sign In / Providers → Email:** desligue **Confirm email**. O envio de e-mail gratuito do
+     Supabase só entrega para a equipe do projeto (2 por hora), então sem isso a Paola não consegue criar a conta.
+     Os dados continuam protegidos: só entra na casa quem tem o código de convite;
    - **Authentication → URL Configuration:** coloque a URL do app (`https://….vercel.app`) em *Site URL*.
-4. Pronto: abra a URL, crie a conta, confirme pelo e-mail e crie a casa.
+4. Pronto: abra a URL, crie a conta e crie a casa. Mande o código de convite (Configurações) para a outra pessoa.
 
 ### Jeito manual
 
 1. **Supabase** — crie um projeto em supabase.com (região São Paulo) e rode `supabase/setup.sql` no SQL Editor
-   (ou `npx supabase link --project-ref <ref> && npx supabase db push`). Em *Authentication → URL Configuration*,
-   coloque a URL da Vercel em *Site URL*.
+   (ou `npx supabase@2.122.0 link --project-ref <ref> && npx supabase@2.122.0 db push`). Em *Authentication →
+   URL Configuration*, coloque a URL da Vercel em *Site URL*, e desligue *Confirm email* (ou configure um SMTP próprio).
 2. **Vercel** — importe o repositório com *Root Directory* `financas` e configure as variáveis abaixo.
 3. **Resend** (opcional, e-mails) — verifique um domínio e gere uma API key. Sem domínio verificado, o Resend
    só entrega para o e-mail dono da conta.

@@ -5,7 +5,13 @@ const translations: [RegExp, string][] = [
   [/password should be at least/i, "A senha precisa ter pelo menos 6 caracteres."],
   [/unable to validate email|invalid email/i, "E-mail inválido."],
   [/email not confirmed/i, "Confirme o e-mail antes de entrar (veja sua caixa de entrada)."],
-  [/rate limit/i, "Muitas tentativas. Aguarde um minuto e tente de novo."],
+  [
+    /email address not authorized|error sending confirmation email|error sending .*email/i,
+    "O Supabase não conseguiu enviar o e-mail de confirmação (o envio gratuito só funciona para a equipe do projeto). " +
+      "No Supabase, desligue “Confirm email” em Authentication → Sign In / Providers → Email e tente de novo.",
+  ],
+  [/signups? not allowed|signup is disabled/i, "O cadastro de novas contas está desligado no Supabase (Authentication → Sign In / Providers)."],
+  [/rate limit/i, "Muitas tentativas. Aguarde um pouco e tente de novo."],
 ];
 
 export function friendlyError(message: string | undefined): string {
