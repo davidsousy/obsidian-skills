@@ -48,6 +48,8 @@ npm run lint
 1. Clique no botão, entre na Vercel e confirme. Ele cria um repositório só com o app (`financas-da-casa`) e o projeto na Vercel.
 2. No mesmo fluxo, aceite criar o **Supabase** (região São Paulo, plano Free). As variáveis do banco são preenchidas sozinhas.
    Se essa etapa não aparecer: depois do deploy, vá em *Storage → Create Database → Supabase* e faça *Redeploy*.
+   Se o botão der erro na Vercel, use este link sem o Supabase e adicione o banco depois pelo *Storage*:
+   [link reserva](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fapp-financas%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa).
 3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*):
    - **SQL Editor:** cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (uma vez só);
    - **Authentication → Sign In / Providers → Email:** desligue **Confirm email**. O envio de e-mail gratuito do
