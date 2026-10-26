@@ -3,43 +3,63 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-// `ready: false` = módulo de uma etapa futura (aparece desabilitado).
-const items = [
-  { href: "/painel", label: "Painel", ready: true },
-  { href: "/dividas", label: "Dívidas", ready: true },
-  { href: "/custos", label: "Custos", ready: true },
-  { href: "/renda", label: "Renda", ready: true },
-  { href: "/plano", label: "Plano", ready: true },
-  { href: "/simulador", label: "Simulador", ready: true },
-  { href: "/configuracoes", label: "Configurações", ready: true },
+type Item = { href: string; label: string; badge?: number };
+
+const mainItems: Item[] = [
+  { href: "/painel", label: "Painel" },
+  { href: "/atrasos", label: "Em atraso" },
+  { href: "/agiotas", label: "Agiotas" },
+  { href: "/parceladas", label: "Parceladas" },
+  { href: "/custos", label: "Custos fixos" },
+  { href: "/resumo", label: "Resumo do mês" },
 ];
 
-export function Nav() {
-  const pathname = usePathname();
+const moreItems: Item[] = [
+  { href: "/calendario", label: "Calendário" },
+  { href: "/renda", label: "Renda" },
+  { href: "/plano", label: "Plano" },
+  { href: "/simulador", label: "Simulador" },
+  { href: "/configuracoes", label: "Configurações" },
+];
+
+function NavLink({ item, active }: { item: Item; active: boolean }) {
   return (
-    <nav className="flex gap-1 overflow-x-auto md:flex-col">
-      {items.map((item) =>
-        item.ready ? (
-          <Link
-            key={item.href}
-            href={item.href}
-            className={`whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${
-              pathname.startsWith(item.href) ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
-            }`}
-          >
-            {item.label}
-          </Link>
-        ) : (
-          <span
-            key={item.href}
-            title="Disponível nas próximas etapas"
-            className="flex cursor-not-allowed items-center justify-between gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-sm text-slate-400"
-          >
-            {item.label}
-            <span className="rounded bg-slate-200 px-1.5 text-[10px] uppercase text-slate-500">em breve</span>
-          </span>
-        ),
+    <Link
+      href={item.href}
+      className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium ${
+        active ? "bg-slate-900 text-white" : "text-slate-700 hover:bg-slate-200"
+      }`}
+    >
+      {item.label}
+      {item.badge !== undefined && (
+        <span
+          className={`num min-w-6 rounded-full px-1.5 text-center text-xs font-bold ${
+            item.badge > 0 ? "bg-atraso text-white" : active ? "bg-white/20 text-white" : "bg-slate-200 text-slate-600"
+          }`}
+        >
+          {item.badge}
+        </span>
       )}
+    </Link>
+  );
+}
+
+/** Menu do documento (Painel, Em atraso, Agiotas, Parceladas, Custos fixos, Resumo do mês) + "Mais". */
+export function Nav({ overdueCount }: { overdueCount: number }) {
+  const pathname = usePathname();
+  const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
+  const main = mainItems.map((i) => (i.href === "/atrasos" ? { ...i, badge: overdueCount } : i));
+  return (
+    <nav className="flex gap-1 overflow-x-auto md:flex-col md:overflow-visible">
+      <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 md:block">Menu</p>
+      {main.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(item.href)} />
+      ))}
+      <span className="mx-1 w-px shrink-0 bg-slate-200 md:mx-0 md:my-2 md:h-px md:w-auto" />
+      <p className="hidden px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400 md:block">Mais</p>
+      {moreItems.map((item) => (
+        <NavLink key={item.href} item={item} active={isActive(item.href)} />
+      ))}
     </nav>
   );
 }

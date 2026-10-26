@@ -88,7 +88,7 @@ export default async function SimuladorPage({ searchParams }: PageProps<"/simula
 
       <Card title="Monte o cenário">
         <form method="get" className="space-y-5">
-          <div className="grid gap-4 md:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-4">
             <Field label="Data-alvo">
               <Input name="alvo" type="date" min={minTarget} defaultValue={target} />
             </Field>
@@ -103,7 +103,7 @@ export default async function SimuladorPage({ searchParams }: PageProps<"/simula
             </Field>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <fieldset>
               <legend className="mb-2 text-sm font-medium text-slate-700">Cortar custos fixos</legend>
               <div className="grid max-h-56 grid-cols-1 gap-x-6 gap-y-1 overflow-y-auto rounded-lg border border-slate-200 p-3 text-sm lg:grid-cols-2">
@@ -130,7 +130,7 @@ export default async function SimuladorPage({ searchParams }: PageProps<"/simula
             </fieldset>
           </div>
 
-          <fieldset className="grid gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-[2fr_1fr_1fr]">
+          <fieldset className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-[2fr_1fr_1fr]">
             <legend className="px-1 text-sm font-medium text-slate-700">Fechar negociação com desconto</legend>
             <Field label="Dívida">
               <Select name="neg_divida" defaultValue={scenario.negotiation?.debtId ?? ""}>

@@ -64,7 +64,7 @@ export function DebtForm({
 
   return (
     <form action={action} className="space-y-6">
-      <div className="grid gap-4 md:grid-cols-2">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
         <Field label="Tipo" hint={help}>
           <Select name="kind" value={kind} onChange={(e) => setKind(e.target.value as DebtKind)}>
             {KIND_OPTIONS.map((k) => (
@@ -90,7 +90,7 @@ export function DebtForm({
         </Field>
       </div>
 
-      <div className="grid gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 rounded-lg bg-slate-50 p-4 md:grid-cols-3">
         {isInstallment && (
           <>
             <Field label="Valor da parcela (R$)">
@@ -155,7 +155,7 @@ export function DebtForm({
         )}
       </div>
 
-      <div className="grid gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Field label="Dia de vencimento" hint={kind === "juros_sobre_principal" ? "Obrigatório para agiota" : "Opcional"}>
           <Input name="due_day" type="number" min={1} max={31} defaultValue={initial.dueDay} required={kind === "juros_sobre_principal"} />
         </Field>

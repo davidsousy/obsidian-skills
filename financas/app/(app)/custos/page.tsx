@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CategoryBars, CostLegend } from "@/components/dashboard";
 import { FixedCostForm } from "@/components/fixed-cost-form";
 import { Button, Card, Field, FlashMessages, Input, Select, Stat } from "@/components/ui";
 import { loadFixedCosts, loadVariableExpenses } from "@/lib/costs-data";
@@ -11,6 +12,7 @@ import {
   fixedTotalForMonth,
   type CostCategory,
 } from "@/lib/finance/costs";
+import { costsByCategory, ESSENTIAL_CATEGORIES } from "@/lib/finance/dashboard";
 import { addMonths, formatDateBR, formatMonthBR, monthStart, todayISO } from "@/lib/finance/dates";
 import { formatBRL } from "@/lib/finance/money";
 import { requireHousehold, type Member } from "@/lib/session";
@@ -46,7 +48,7 @@ export default async function CustosPage({ searchParams }: PageProps<"/custos">)
   return (
     <div className="max-w-6xl space-y-6">
       <header className="flex flex-wrap items-center justify-between gap-3">
-        <h1 className="text-3xl font-bold">Custos</h1>
+        <h1 className="text-3xl font-bold">{active === "fixos" ? "Custos fixos mensais" : "Gastos variáveis"}</h1>
         <Tabs active={active} />
       </header>
       <FlashMessages searchParams={flash} />
@@ -76,6 +78,7 @@ async function FixedTab({ supabase, members }: TabProps) {
   const byCategory = fixedByCategory(costs);
   const approx = costs.filter((c) => c.active && c.isApproximate);
   const categories = CATEGORIES.filter((c) => costs.some((x) => x.category === c));
+  const chart = costsByCategory(costs);
 
   if (costs.length === 0) {
     return (
@@ -95,7 +98,7 @@ async function FixedTab({ supabase, members }: TabProps) {
 
   return (
     <>
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat label="Custos fixos por mês" value={formatBRL(total)} hint={`${costs.filter((c) => c.active).length} custos ativos`} />
         <Stat
           label={`Contam em ${formatMonthBR(monthStart(today))}`}
@@ -110,10 +113,27 @@ async function FixedTab({ supabase, members }: TabProps) {
         />
       </div>
 
+      <Card
+        title={
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            Custos por categoria <CostLegend essential={chart.essential} cuttable={chart.cuttable} />
+          </span>
+        }
+      >
+        <CategoryBars bars={chart.bars} />
+      </Card>
+
       {categories.map((cat) => (
-        <section key={cat} className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <section key={cat} id={cat} className="scroll-mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-5 py-3">
-            <h2 className="font-semibold text-slate-700">{CATEGORY_LABEL[cat]}</h2>
+            <h2 className="flex items-center gap-2 font-semibold text-slate-700">
+              {CATEGORY_LABEL[cat]}
+              {ESSENTIAL_CATEGORIES.has(cat) ? (
+                <span className="rounded-full bg-slate-700 px-2 py-0.5 text-[11px] font-semibold text-white">Essencial</span>
+              ) : (
+                <span className="rounded-full bg-amber-400 px-2 py-0.5 text-[11px] font-semibold text-amber-950">Dá para cortar</span>
+              )}
+            </h2>
             <span className="num text-lg font-bold">{formatBRL(byCategory.get(cat) ?? 0)}</span>
           </div>
           <ul className="divide-y divide-slate-100">
@@ -229,7 +249,7 @@ async function VariableTab({
         </Link>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <Stat label={`Total de ${formatMonthBR(current)}`} value={formatBRL(cmp.monthTotal)} hint={`${monthExpenses.length} lançamentos`} />
         <Stat
           label="Média mensal"

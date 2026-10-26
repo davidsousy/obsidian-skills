@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { groupStyle, RiskBadge, StatusBadge } from "@/components/debt-badges";
+import { GROUP_PAGE } from "@/components/debt-list";
 import { Button, Card, Field, FlashMessages, Input, LinkButton } from "@/components/ui";
 import { NegotiationsSection } from "@/components/negotiations";
 import { loadDebts, loadPayments } from "@/lib/debts-data";
@@ -41,8 +42,8 @@ export default async function DividaPage({ params, searchParams }: PageProps<"/d
 
   return (
     <div className="max-w-5xl space-y-6">
-      <Link href="/dividas" className="text-sm text-slate-500 hover:underline">
-        ← Dívidas
+      <Link href={GROUP_PAGE[group].href} className="text-sm text-slate-500 hover:underline">
+        ← {GROUP_PAGE[group].label}
       </Link>
       <header className="flex flex-wrap items-start justify-between gap-4">
         <div>

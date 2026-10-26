@@ -6,8 +6,8 @@ import { createDebt } from "../actions";
 export default function NovaDividaPage({ searchParams }: PageProps<"/dividas/nova">) {
   return (
     <div className="max-w-4xl space-y-6">
-      <Link href="/dividas" className="text-sm text-slate-500 hover:underline">
-        ← Dívidas
+      <Link href="/composicao" className="text-sm text-slate-500 hover:underline">
+        ← Todas as dívidas
       </Link>
       <h1 className="text-3xl font-bold">Nova dívida</h1>
       <FlashMessages searchParams={searchParams as Promise<{ erro?: string; ok?: string }>} />

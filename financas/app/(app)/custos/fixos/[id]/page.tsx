@@ -16,7 +16,7 @@ export default async function EditarCustoPage({ params, searchParams }: PageProp
   return (
     <div className="max-w-5xl space-y-6">
       <Link href="/custos" className="text-sm text-slate-500 hover:underline">
-        ← Custos
+        ← Custos fixos
       </Link>
       <h1 className="text-3xl font-bold">{cost.name}</h1>
       <FlashMessages searchParams={searchParams as Promise<{ erro?: string; ok?: string }>} />

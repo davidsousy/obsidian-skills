@@ -16,7 +16,7 @@ export function FixedCostForm({
   submitLabel: string;
 }) {
   return (
-    <form action={action} className="grid gap-4 md:grid-cols-4">
+    <form action={action} className="grid grid-cols-1 gap-4 md:grid-cols-4">
       <Field label="Nome">
         <Input name="name" defaultValue={cost?.name} required />
       </Field>

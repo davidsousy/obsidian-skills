@@ -4,6 +4,20 @@ Gestão financeira pessoal do David e da Paola, com foco em quitar as dívidas a
 Next.js (App Router) + TypeScript + Tailwind + Supabase (Postgres, Auth, RLS) + Recharts + Resend.
 A proposta aprovada está em [`docs/PROPOSTA.md`](docs/PROPOSTA.md).
 
+## Telas
+
+Menu principal (como no documento "Finanças David"): **Painel · Em atraso · Agiotas · Parceladas · Custos fixos ·
+Resumo do mês**, com a meta **zerar atrasos e agiotas** (quanto falta e % do principal pago) no menu lateral.
+Em "Mais": Calendário de vencimentos, Renda, Plano, Simulador e Configurações.
+
+- **Painel:** total de dívidas, em atraso, agiotas e custos fixos (cada card ↗ abre a tela); custos por categoria
+  (essencial × dá para cortar: moradia, alimentação, carro e saúde são essenciais); próximo vencimento; vencimentos
+  dos próximos 30 dias; dívidas em atraso com o total; progresso das dívidas (% já pago, sem o carro: pago /
+  parcelado / atrasos e agiotas); juros dos agiotas. Clique em qualquer conta para pagar ou editar.
+- **Composição da dívida total** (`/composicao`): rosca por tipo e todas as dívidas (antes era a tela Dívidas).
+- **Calendário de vencimentos** e **Resumo do mês** (renda, custos fixos, gastos variáveis, dívidas pagas, sobra ou
+  falta, parcelas e juros do mês, pagamentos lançados) navegam por mês (`?mes=aaaa-mm`).
+
 ## Módulos
 
 - [x] 1. Casa + acesso (sem tela de login por enquanto: o app entra sozinho como David ou Paola; RLS por casa)
@@ -113,7 +127,7 @@ Variáveis `NEXT_PUBLIC_*` só valem depois de um novo deploy (*Deployments → 
 
 | Pasta | Conteúdo |
 |---|---|
-| `lib/finance/` | motor de cálculo: funções puras e testadas (dívidas, custos, renda, plano, simulador, alertas) |
+| `lib/finance/` | motor de cálculo: funções puras e testadas (dívidas, custos, renda, plano, simulador, alertas, painel) |
 | `lib/*-data.ts` | leitura do banco e conversão para os tipos do motor |
 | `supabase/migrations/` | schema, RLS e funções SQL |
 | `tests/db/` | testes de RLS e funções SQL (um usuário de fora da casa não lê nem grava nada) |

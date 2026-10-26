@@ -103,6 +103,23 @@ export function formatMonthBR(date: ISODate): string {
   return `${monthNames[m - 1]}/${y}`;
 }
 
+const longMonthNames = [
+  "janeiro", "fevereiro", "março", "abril", "maio", "junho",
+  "julho", "agosto", "setembro", "outubro", "novembro", "dezembro",
+];
+
+/** "2026-10-01" → "outubro de 2026" */
+export function formatMonthLongBR(date: ISODate): string {
+  const { y, m } = parseISO(date);
+  return `${longMonthNames[m - 1]} de ${y}`;
+}
+
+/** "2026-10" (parâmetro ?mes=) → "2026-10-01"; inválido ou ausente → mês de `fallback`. */
+export function monthFromParam(value: string | undefined, fallback: ISODate): ISODate {
+  if (value && /^\d{4}-(0[1-9]|1[0-2])$/.test(value)) return `${value}-01`;
+  return monthStart(fallback);
+}
+
 /** Último dia do mês da data. */
 export function endOfMonthISO(date: ISODate): ISODate {
   const { y, m } = parseISO(date);

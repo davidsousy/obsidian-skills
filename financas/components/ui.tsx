@@ -72,11 +72,14 @@ export function Stat({
   value,
   hint,
   tone = "default",
+  href,
 }: {
   label: string;
   value: ReactNode;
   hint?: ReactNode;
   tone?: "default" | "atraso" | "juros" | "parcelado" | "quitado";
+  /** card inteiro vira link (com ↗), como no painel */
+  href?: string;
 }) {
   const color = {
     default: "text-slate-900",
@@ -85,12 +88,27 @@ export function Stat({
     parcelado: "text-parcelado",
     quitado: "text-quitado",
   }[tone];
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-      <p className="text-sm font-medium text-slate-500">{label}</p>
+  const body = (
+    <>
+      <p className="flex items-center justify-between gap-2 text-sm font-medium text-slate-500">
+        {label}
+        {href && (
+          <span aria-hidden className="text-base text-slate-400 group-hover:text-slate-800">
+            ↗
+          </span>
+        )}
+      </p>
       <p className={`num mt-1 whitespace-nowrap text-2xl font-bold xl:text-3xl ${color}`}>{value}</p>
       {hint && <p className="mt-1 text-xs text-slate-500">{hint}</p>}
-    </div>
+    </>
+  );
+  const box = "rounded-xl border border-slate-200 bg-white p-5 shadow-sm";
+  return href ? (
+    <Link href={href} className={`group block ${box} transition-colors hover:border-slate-400`}>
+      {body}
+    </Link>
+  ) : (
+    <div className={box}>{body}</div>
   );
 }
 

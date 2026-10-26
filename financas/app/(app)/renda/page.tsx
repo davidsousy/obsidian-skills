@@ -45,7 +45,7 @@ export default async function RendaPage({ searchParams }: PageProps<"/renda">) {
       <h1 className="text-3xl font-bold">Renda</h1>
       <FlashMessages searchParams={searchParams as Promise<{ erro?: string; ok?: string }>} />
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Uber do dia (David)">
           <form action={saveUberDay} className="grid items-end gap-3 sm:grid-cols-[9.5rem_1fr_6rem]">
             <Field label="Data">
@@ -98,7 +98,7 @@ export default async function RendaPage({ searchParams }: PageProps<"/renda">) {
         </Card>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Stat
           label="Uber: bruto por hora"
           value={rates ? formatBRL(rates.grossPerHour) : "—"}
@@ -171,7 +171,7 @@ export default async function RendaPage({ searchParams }: PageProps<"/renda">) {
         {chart.length === 0 ? <p className="text-slate-500">Lance os dias rodados para ver o gráfico.</p> : <HourlyChart data={chart} />}
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <Card title="Dias do Uber">
           {uber.length === 0 ? (
             <p className="text-slate-500">Nenhum dia lançado.</p>

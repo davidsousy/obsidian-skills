@@ -149,7 +149,7 @@ export async function deleteDebt(id: string, formData: FormData) {
   const { error } = await supabase.from("debts").delete().eq("id", id);
   if (error) redirect(withParam(`/dividas/${id}`, "erro", friendlyError(error.message)));
   revalidatePath("/", "layout");
-  redirect(withParam("/dividas", "ok", "Dívida excluída."));
+  redirect(withParam("/composicao", "ok", "Dívida excluída."));
 }
 
 export async function registerPayment(id: string, formData: FormData) {
@@ -180,7 +180,7 @@ export async function undoLastPayment(id: string) {
 export async function loadSeedDebts() {
   const { supabase } = await requireHousehold();
   const { error } = await supabase.rpc("load_seed_debts");
-  if (error) redirect(withParam("/dividas", "erro", friendlyError(error.message)));
+  if (error) redirect(withParam("/composicao", "erro", friendlyError(error.message)));
   revalidatePath("/", "layout");
-  redirect(withParam("/dividas", "ok", "Dívidas de outubro/2026 carregadas."));
+  redirect(withParam("/composicao", "ok", "Dívidas de outubro/2026 carregadas."));
 }

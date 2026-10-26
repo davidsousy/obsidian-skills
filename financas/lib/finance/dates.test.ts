@@ -6,6 +6,8 @@ import {
   dueDateInMonth,
   formatDateBR,
   formatMonthBR,
+  formatMonthLongBR,
+  monthFromParam,
   monthsBetween,
   parseDateBR,
   todayISO,
@@ -45,5 +47,9 @@ describe("datas", () => {
 
   it("nome do mês", () => {
     expect(formatMonthBR("2026-10-01")).toBe("out/2026");
+    expect(formatMonthLongBR("2026-03-15")).toBe("março de 2026");
+    expect(monthFromParam("2026-11", "2026-10-26")).toBe("2026-11-01");
+    expect(monthFromParam("2026-13", "2026-10-26")).toBe("2026-10-01");
+    expect(monthFromParam(undefined, "2026-10-26")).toBe("2026-10-01");
   });
 });

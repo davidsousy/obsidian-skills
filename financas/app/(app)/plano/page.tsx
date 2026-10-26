@@ -67,7 +67,7 @@ export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
         <>
           <PlanVerdict ctx={ctx} plan={plan} />
 
-          <div className="grid gap-6 lg:grid-cols-2">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card title="De onde vem a renda necessária (média por mês)">
               <dl className="num space-y-2 text-sm">
                 {[

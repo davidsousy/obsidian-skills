@@ -1,148 +1,199 @@
 import Link from "next/link";
-import { AlertsCard } from "@/components/alerts-card";
-import { PlanVerdict } from "@/components/plan-verdict";
+import { CategoryBars, CostLegend, daysLabel, DebtProgressBar, DueRow, itemHref } from "@/components/dashboard";
+import { RiskBadge, StatusBadge } from "@/components/debt-badges";
+import { Card, LinkButton, Stat } from "@/components/ui";
+import { loadFixedCosts } from "@/lib/costs-data";
+import { loadDebts, loadPayments } from "@/lib/debts-data";
 import { interestOverPaid, overdueItems, upcomingDues } from "@/lib/finance/alerts";
-import { Card, Stat } from "@/components/ui";
-import { interestPaidThisMonth, loadDebts, loadPayments } from "@/lib/debts-data";
-import { diffDays, formatDateBR, formatMonthBR, monthStart, todayISO } from "@/lib/finance/dates";
-import { loadIncome } from "@/lib/income-data";
-import { debtTotals } from "@/lib/finance/debts";
-import { formatBRL } from "@/lib/finance/money";
-import { computePlan, loadPlanContext } from "@/lib/plan-data";
+import { fixedMonthlyTotal } from "@/lib/finance/costs";
+import { costsByCategory, debtProgress, loanInterest } from "@/lib/finance/dashboard";
+import { dueDateInMonth, formatDateBR, todayISO } from "@/lib/finance/dates";
+import { debtGroup, debtTotals } from "@/lib/finance/debts";
+import { formatBRL, formatPercent } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
 
 export default async function PainelPage() {
-  const { supabase, household } = await requireHousehold();
+  const { supabase } = await requireHousehold();
   const today = todayISO();
-  const [debts, payments, income, ctx] = await Promise.all([
-    loadDebts(supabase),
-    loadPayments(supabase),
-    loadIncome(supabase, monthStart(today)),
-    loadPlanContext(supabase, household),
-  ]);
-  const plan = household.target_date ? computePlan(ctx, household.target_date, household.tight_margin_pct) : null;
-  const receivedThisMonth =
-    income.uber.filter((u) => u.workedOn <= today).reduce((s, u) => s + u.grossCents, 0) +
-    income.entries.filter((e) => e.receivedOn <= today).reduce((s, e) => s + e.amountCents, 0);
+  const [debts, payments, fixedCosts] = await Promise.all([loadDebts(supabase), loadPayments(supabase), loadFixedCosts(supabase)]);
+  const refs = payments.map((p) => ({ debtId: p.debtId, paidOn: p.paidOn, amountCents: p.amountCents, interestCents: p.interestCents }));
+
   const totals = debtTotals(debts);
-  const paymentRefs = payments.map((p) => ({ debtId: p.debtId, paidOn: p.paidOn, amountCents: p.amountCents, interestCents: p.interestCents }));
-  const dues = upcomingDues(debts, paymentRefs, ctx.input.fixedCosts, today, 7);
-  const overdue = overdueItems(debts, paymentRefs, today);
-  const interestAlerts = interestOverPaid(debts, paymentRefs);
-  const openInterest = debts
-    .filter((d) => d.status !== "quitada")
-    .reduce((s, d) => s + d.charges.reduce((x, c) => x + c.amountCents - c.paidCents, 0), 0);
+  const openDebts = debts.filter((d) => d.status !== "quitada");
+  const overdue = debts.filter((d) => debtGroup(d) === "atraso").sort((a, b) => b.currentBalanceCents - a.currentBalanceCents);
+  const loans = loanInterest(debts, payments);
+  const activeCosts = fixedCosts.filter((c) => c.active);
+  const categories = costsByCategory(fixedCosts);
+  const progress = debtProgress(debts, payments);
+  const interestAlerts = interestOverPaid(debts, refs);
+
+  // vencimentos: parcelas/juros do mês que já venceram sem pagamento + os próximos 30 dias
+  const late = overdueItems(debts, refs, today)
+    .filter((i) => !overdue.some((d) => d.id === i.id))
+    .map((i) => ({ ...i, dueDate: dueDateInMonth(today, debts.find((d) => d.id === i.id)!.dueDay!) }));
+  const upcoming = upcomingDues(debts, refs, fixedCosts, today, 30);
+  const soon = upcomingDues(debts, refs, fixedCosts, today, 45);
+  const next = soon.filter((d) => d.dueDate === soon[0]?.dueDate);
 
   return (
     <div className="max-w-6xl space-y-6">
-      <header>
-        <h1 className="text-3xl font-bold">Painel</h1>
-        <p className="text-slate-500">Hoje é {formatDateBR(today)}</p>
+      <header className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="text-3xl font-bold">Painel</h1>
+          <p className="text-slate-500">Dívidas, custos e vencimentos. Clique em qualquer conta para editar.</p>
+        </div>
+        <LinkButton href="/resumo" variant="secondary">
+          Resumo do mês
+        </LinkButton>
       </header>
 
-      {debts.length === 0 ? (
-        <Card title="Comece pelas dívidas">
-          <p className="text-slate-600">
-            Nenhuma dívida cadastrada.{" "}
-            <Link href="/dividas" className="font-semibold underline">
-              Ir para Dívidas
-            </Link>
-          </p>
-        </Card>
-      ) : (
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <Stat label="Total de dívidas" value={formatBRL(totals.total)} />
-          <Stat label="Total em atraso" value={formatBRL(totals.overdue)} tone="atraso" />
-          <Stat label="Juros pagos no mês" value={formatBRL(interestPaidThisMonth(payments))} tone="juros" />
-          <Stat label="Juros do mês em aberto" value={formatBRL(openInterest)} tone="juros" hint="Agiotas e contas com multa" />
-          <Stat label="Renda recebida no mês" value={formatBRL(receivedThisMonth)} tone="quitado" hint="Uber bruto + entradas" />
-        </div>
-      )}
-
-      {(debts.length > 0 || ctx.input.fixedCosts.length > 0) && (
-        <AlertsCard today={today} dues={dues} overdue={overdue} interest={interestAlerts} />
-      )}
-
-      {plan ? (
-        <>
-          <PlanVerdict ctx={ctx} plan={plan} compact />
-          <Progress
-            paidPrincipal={payments.reduce((s, p) => s + p.principalCents, 0)}
-            remaining={totals.total}
-            start={household.created_at}
-            target={plan.target}
-            today={today}
-          />
-          <Card title="Renda do mês × necessária">
-            <Bar
-              value={receivedThisMonth}
-              max={plan.schedule.months[0].income}
-              label={`${formatBRL(receivedThisMonth)} recebidos de ${formatBRL(plan.schedule.months[0].income)} (necessário em ${formatMonthBR(plan.schedule.months[0].month)})`}
-            />
-          </Card>
-        </>
-      ) : (
-        <Card title="Quanto preciso ganhar">
-          <p className="text-slate-600">
-            Defina a data em que quer estar sem dívidas no{" "}
-            <Link href="/plano" className="font-semibold underline">
-              Plano
-            </Link>{" "}
-            para ver a renda necessária e a viabilidade.
-          </p>
-        </Card>
-      )}
-    </div>
-  );
-}
-
-function Bar({ value, max, label, tone = "bg-slate-800" }: { value: number; max: number; label: string; tone?: string }) {
-  const pct = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
-  return (
-    <div>
-      <div className="h-4 overflow-hidden rounded-full bg-slate-100">
-        <div className={`h-4 rounded-full ${tone}`} style={{ width: `${pct}%` }} />
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <Stat label="Total de dívidas" value={formatBRL(totals.total)} hint={`${openDebts.length} dívidas em aberto`} href="/composicao" />
+        <Stat label="Em atraso" value={formatBRL(totals.overdue)} tone="atraso" hint={`${overdue.length} contas`} href="/atrasos" />
+        <Stat
+          label="Agiotas"
+          value={formatBRL(totals.byGroup.agiotas)}
+          tone="juros"
+          hint={`juros de ${formatBRL(loans.monthly)} por mês`}
+          href="/agiotas"
+        />
+        <Stat label="Custos fixos" value={formatBRL(fixedMonthlyTotal(fixedCosts))} hint={`${activeCosts.length} contas por mês`} href="/custos" />
       </div>
-      <p className="num mt-1 text-sm text-slate-600">
-        {label} · {Math.round(pct)}%
-      </p>
-    </div>
-  );
-}
 
-function Progress({
-  paidPrincipal,
-  remaining,
-  start,
-  target,
-  today,
-}: {
-  paidPrincipal: number;
-  remaining: number;
-  start: string;
-  target: string;
-  today: string;
-}) {
-  const startDate = start.slice(0, 10);
-  const totalDays = Math.max(1, diffDays(startDate, target));
-  const elapsed = Math.min(totalDays, Math.max(0, diffDays(startDate, today)));
-  return (
-    <Card title={`Progresso até ${formatDateBR(target)}`}>
-      <div className="grid gap-6 md:grid-cols-2">
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">Dívidas quitadas</p>
-          <Bar
-            value={paidPrincipal}
-            max={paidPrincipal + remaining}
-            tone="bg-quitado"
-            label={`${formatBRL(paidPrincipal)} abatidos de ${formatBRL(paidPrincipal + remaining)}`}
-          />
-        </div>
-        <div>
-          <p className="mb-2 text-sm font-medium text-slate-600">Tempo até a data-alvo</p>
-          <Bar value={elapsed} max={totalDays} label={`${elapsed} de ${totalDays} dias · faltam ${totalDays - elapsed}`} />
-        </div>
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card
+          className="lg:col-span-2"
+          title={
+            <span className="flex flex-wrap items-center justify-between gap-2">
+              Custos por categoria <CostLegend essential={categories.essential} cuttable={categories.cuttable} />
+            </span>
+          }
+        >
+          {categories.bars.length === 0 ? (
+            <p className="text-sm text-slate-500">Nenhum custo fixo cadastrado.</p>
+          ) : (
+            <CategoryBars bars={categories.bars} />
+          )}
+        </Card>
+
+        <Card title="Próximo vencimento">
+          {next.length === 0 ? (
+            <p className="text-sm text-slate-500">Nada vence nos próximos 45 dias.</p>
+          ) : (
+            <>
+              <p className="num text-3xl font-bold">{formatBRL(next.reduce((s, d) => s + d.amountCents, 0))}</p>
+              <p className="text-sm text-slate-600">
+                {formatDateBR(next[0].dueDate)} · {daysLabel(today, next[0].dueDate)}
+              </p>
+              <ul className="mt-3 space-y-1 text-sm">
+                {next.map((d) => (
+                  <li key={`${d.source}-${d.id}`}>
+                    <Link href={itemHref(d.source, d.id)} className="flex justify-between gap-3 hover:underline">
+                      <span className="truncate">{d.name}</span>
+                      <span className="num shrink-0 font-medium">{formatBRL(d.amountCents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
+          <Link href="/calendario" className="mt-4 inline-block text-sm font-semibold text-slate-900 underline">
+            Ver calendário
+          </Link>
+        </Card>
       </div>
-    </Card>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <Card title="Vencimentos">
+          {late.length + upcoming.length === 0 ? (
+            <p className="text-sm text-slate-500">Nada vence nos próximos 30 dias.</p>
+          ) : (
+            <ul className="-mx-2 divide-y divide-slate-100">
+              {late.map((i) => (
+                <DueRow key={`late-${i.id}`} href={`/dividas/${i.id}`} date={i.dueDate} name={i.name} detail={`${i.reason} · ${daysLabel(today, i.dueDate)}`} amount={i.amountCents} tone="atraso" />
+              ))}
+              {upcoming.map((d) => (
+                <DueRow
+                  key={`${d.source}-${d.id}-${d.dueDate}`}
+                  href={itemHref(d.source, d.id)}
+                  date={d.dueDate}
+                  name={d.name}
+                  detail={daysLabel(today, d.dueDate)}
+                  amount={d.amountCents}
+                />
+              ))}
+            </ul>
+          )}
+        </Card>
+
+        <Card title="Dívidas em atraso">
+          {overdue.length === 0 ? (
+            <p className="text-sm text-quitado">Nenhuma conta em atraso. 🎉</p>
+          ) : (
+            <>
+              <ul className="-mx-2 divide-y divide-slate-100">
+                {overdue.map((d) => (
+                  <li key={d.id}>
+                    <Link href={`/dividas/${d.id}`} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">
+                      <span className="min-w-0 flex-1 truncate font-medium">{d.name}</span>
+                      {/* no celular o nome tem prioridade; as etiquetas aparecem na tela Em atraso */}
+                      <span className="hidden sm:contents">
+                        {d.riskPriority && <RiskBadge />}
+                        {d.status === "em_negociacao" && <StatusBadge status={d.status} />}
+                      </span>
+                      <span className="num shrink-0 font-semibold text-atraso">{formatBRL(d.currentBalanceCents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 flex justify-between border-t border-slate-200 pt-3 font-semibold">
+                Total em atraso <span className="num text-atraso">{formatBRL(totals.overdue)}</span>
+              </p>
+            </>
+          )}
+        </Card>
+      </div>
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card title="Progresso das dívidas" className="lg:col-span-2">
+          <DebtProgressBar progress={progress} />
+        </Card>
+
+        <Card title="Juros dos agiotas">
+          {loans.items.length === 0 ? (
+            <p className="text-sm text-quitado">Nenhum agiota em aberto. 🎉</p>
+          ) : (
+            <>
+              <p className="num text-3xl font-bold text-juros">
+                {formatBRL(loans.monthly)}
+                <span className="text-base font-normal text-slate-500"> /mês</span>
+              </p>
+              <p className="text-sm text-slate-500">{formatBRL(loans.monthly * 12)} por ano se nada mudar</p>
+              <ul className="mt-3 space-y-1 text-sm">
+                {loans.items.map((i) => (
+                  <li key={i.id}>
+                    <Link href={`/dividas/${i.id}`} className="flex justify-between gap-3 hover:underline">
+                      <span className="truncate">
+                        {i.name} <span className="text-slate-500">· {formatPercent(i.rate)} de {formatBRL(i.principalCents)}</span>
+                      </span>
+                      <span className="num shrink-0 font-medium">{formatBRL(i.monthlyCents)}</span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+              <p className="mt-3 border-t border-slate-200 pt-3 text-sm text-slate-600">
+                Em aberto: <strong className="num">{formatBRL(loans.open)}</strong> · já pagos só de juros:{" "}
+                <strong className="num">{formatBRL(loans.paid)}</strong>
+              </p>
+              {interestAlerts.length > 0 && (
+                <p className="mt-2 rounded-lg bg-juros-bg px-3 py-2 text-xs text-orange-800">
+                  Juros lançados maiores que tudo o que foi pago em: {interestAlerts.map((a) => a.name).join(", ")}.
+                </p>
+              )}
+            </>
+          )}
+        </Card>
+      </div>
+    </div>
   );
 }

@@ -14,7 +14,7 @@ export default async function ConfiguracoesPage({ searchParams }: PageProps<"/co
       <FlashMessages searchParams={searchParams as Promise<{ erro?: string; ok?: string }>} />
 
       <Card title="Casa">
-        <form action={updateHousehold} className="grid gap-4 md:grid-cols-2">
+        <form action={updateHousehold} className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <Field label="Nome da casa">
             <Input name="name" defaultValue={household.name} required />
           </Field>
@@ -62,7 +62,7 @@ export default async function ConfiguracoesPage({ searchParams }: PageProps<"/co
       </Card>
 
       <Card title={`Preferências de ${me.display_name}`}>
-        <form action={updateMyPreferences} className="grid gap-4 md:grid-cols-3">
+        <form action={updateMyPreferences} className="grid grid-cols-1 gap-4 md:grid-cols-3">
           <Field label="Meu nome">
             <Input name="display_name" defaultValue={me.display_name} required />
           </Field>

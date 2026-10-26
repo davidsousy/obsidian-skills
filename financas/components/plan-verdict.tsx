@@ -18,7 +18,7 @@ export function incomeSourceLabel(ctx: PlanContext): string {
 }
 
 /** Card "Quanto preciso ganhar": renda necessária × real, veredito, horas de Uber e data viável. */
-export function PlanVerdict({ ctx, plan, compact = false }: { ctx: PlanContext; plan: PlanResult; compact?: boolean }) {
+export function PlanVerdict({ ctx, plan }: { ctx: PlanContext; plan: PlanResult }) {
   const s = STYLE[plan.viability.status];
   const diff = plan.viability.diff;
   return (
@@ -82,7 +82,7 @@ export function PlanVerdict({ ctx, plan, compact = false }: { ctx: PlanContext; 
         </div>
       </div>
 
-      {!compact && plan.viability.status === "inviavel" && (
+      {plan.viability.status === "inviavel" && (
         <p className="mt-4 rounded-lg bg-white/70 p-3 text-sm">
           {plan.nearest.reason === "ok" ? (
             <>
