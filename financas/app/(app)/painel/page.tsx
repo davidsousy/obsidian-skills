@@ -12,7 +12,7 @@ import { computePlan, loadPlanContext } from "@/lib/plan-data";
 import { requireHousehold } from "@/lib/session";
 
 export default async function PainelPage() {
-  const { supabase, household, members } = await requireHousehold();
+  const { supabase, household } = await requireHousehold();
   const today = todayISO();
   const [debts, payments, income, ctx] = await Promise.all([
     loadDebts(supabase),
@@ -39,15 +39,6 @@ export default async function PainelPage() {
         <h1 className="text-3xl font-bold">Painel</h1>
         <p className="text-slate-500">Hoje é {formatDateBR(today)}</p>
       </header>
-
-      {members.length === 1 && (
-        <Card title="Convide o(a) parceiro(a)">
-          <p className="text-slate-700">
-            Só você está na casa por enquanto. Código de convite:{" "}
-            <code className="rounded bg-slate-100 px-2 py-1 font-mono text-lg">{household.invite_code}</code>
-          </p>
-        </Card>
-      )}
 
       {debts.length === 0 ? (
         <Card title="Comece pelas dívidas">

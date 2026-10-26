@@ -78,4 +78,43 @@ describe.skipIf(!process.env.SUPABASE_SECRET_KEY)("job de alertas por e-mail (pr
     expect(ours.map((s) => s.to.split("-")[0])).toEqual(["david"]);
     expect(ours[0].items.map((i) => i.name).sort()).toEqual(["Aluguel", "Condomínio", "Parcela do carro"]);
   });
+
+  it("sem login: conta interna não recebe; a casa dela avisa os endereços de ALERT_EMAILS", async () => {
+    const internal = await createUser(db, "interna", "financas-da-casa.invalid");
+    const conta = `Conta da casa sem login ${internal.slice(0, 8)}`; // identifica esta casa entre as do banco local
+    try {
+      await asUser(db, internal, async (q) => {
+        await q("select create_household('Casa sem login', 'David')");
+        await q(
+          `insert into fixed_costs (household_id, name, amount_cents, due_day, category)
+           values (current_household_id(), $1, 12345, 30, 'moradia')`,
+          [conta],
+        );
+      });
+      const deste = (r: Awaited<ReturnType<typeof runAlerts>>) => r.sent.filter((s) => s.items.some((i) => i.name === conta));
+      const destinos = ["casal@exemplo.com", "outro@exemplo.com"];
+
+      const outbox: Email[] = [];
+      const r = await runAlerts(admin, "2026-10-27", "https://app.test", async (e) => void outbox.push(e), destinos);
+      expect(r.sent.some((s) => s.to.endsWith("@financas-da-casa.invalid"))).toBe(false);
+      expect(deste(r).map((s) => s.to)).toEqual(destinos);
+      expect(deste(r)[0].items).toEqual([{ name: conta, dueDate: "2026-10-30", amountCents: 12345 }]);
+      expect(outbox.filter((e) => e.html.includes(conta)).map((e) => e.subject)).toEqual([
+        `Vence em 30/10/2026: ${conta} (R$ 123,45)`,
+        `Vence em 30/10/2026: ${conta} (R$ 123,45)`,
+      ]);
+
+      // sem ALERT_EMAILS: ninguém recebe os avisos desta casa
+      expect(deste(await runAlerts(admin, "2026-10-27", "https://app.test"))).toEqual([]);
+
+      // antecedência das Configurações (5 dias: 25/10 → 30/10) e alertas desligados
+      await asUser(db, internal, (q) => q("update household_members set alert_days_before = 5 where user_id = $1", [internal]));
+      expect(deste(await runAlerts(admin, "2026-10-27", "https://app.test", undefined, destinos))).toEqual([]);
+      expect(deste(await runAlerts(admin, "2026-10-25", "https://app.test", undefined, destinos))).toHaveLength(2);
+      await asUser(db, internal, (q) => q("update household_members set email_alerts = false where user_id = $1", [internal]));
+      expect(deste(await runAlerts(admin, "2026-10-25", "https://app.test", undefined, destinos))).toEqual([]);
+    } finally {
+      await deleteUsers(db, [internal]);
+    }
+  });
 });

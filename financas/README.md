@@ -6,7 +6,7 @@ A proposta aprovada está em [`docs/PROPOSTA.md`](docs/PROPOSTA.md).
 
 ## Módulos
 
-- [x] 1. Login + casa (criar, entrar por convite, configurações, RLS)
+- [x] 1. Casa + acesso (sem tela de login por enquanto: o app entra sozinho como David ou Paola; RLS por casa)
 - [x] 2. Dívidas + pagamentos (seed de outubro/2026: R$ 42.344,00)
 - [x] 3. Custos fixos e variáveis (seed: R$ 10.931,00 por mês)
 - [x] 4. Renda (Uber diário com ganho por hora bruto e líquido, entradas da Paola, médias 30/90 dias)
@@ -27,8 +27,20 @@ cp .env.example .env.local
 npm run dev               # http://localhost:3000
 ```
 
-Primeiro acesso: crie a conta, crie a casa e mande o **código de convite** (Configurações) para o outro membro.
-Em Dívidas e em Custos há botões para carregar os dados combinados de outubro/2026.
+Primeiro acesso: abra o app. Ele cria sozinho as contas internas de David e Paola, a casa e os dados combinados
+de outubro/2026 (dívidas e custos fixos), com uma data-alvo inicial que dá para mudar no Plano.
+
+## Sem login (modo atual)
+
+- Não há tela de login: o app entra sozinho e o seletor **Usando como: David | Paola** (barra lateral) define
+  quem aparece como responsável pelos lançamentos. A escolha fica salva no navegador.
+- Por baixo, David e Paola são duas contas do Supabase Auth com e-mails `@financas-da-casa.invalid` (que não
+  recebem nada) e senhas derivadas da chave secreta do Supabase, que só existe no servidor. Assim o RLS e o
+  "lançado por" continuam funcionando.
+- Se o banco já tinha uma casa (criada pelo login antigo), as contas internas entram nela; nada é duplicado.
+- **Atenção:** sem login, qualquer pessoa com o link do app vê e altera os dados. Não divulgue o link.
+- `/diagnostico` mostra o que está configurado (variáveis, tabelas, contas, casa, região) e o erro do primeiro
+  acesso, se houver.
 
 ## Testes
 
@@ -50,19 +62,14 @@ npm run lint
    Se essa etapa não aparecer: depois do deploy, vá em *Storage → Create Database → Supabase* e faça *Redeploy*.
    Se o botão der erro na Vercel, use este link sem o Supabase e adicione o banco depois pelo *Storage*:
    [link reserva](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fapp-financas%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa).
-3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*):
-   - **SQL Editor:** cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (uma vez só);
-   - **Authentication → Sign In / Providers → Email:** desligue **Confirm email**. O envio de e-mail gratuito do
-     Supabase só entrega para a equipe do projeto (2 por hora), então sem isso a Paola não consegue criar a conta.
-     Os dados continuam protegidos: só entra na casa quem tem o código de convite;
-   - **Authentication → URL Configuration:** coloque a URL do app (`https://….vercel.app`) em *Site URL*.
-4. Pronto: abra a URL, crie a conta e crie a casa. Mande o código de convite (Configurações) para a outra pessoa.
+3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*) → **SQL Editor**,
+   cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (uma vez só).
+4. Pronto: abra a URL. O app já abre no Painel. Se algo faltar, `/diagnostico` diz o quê.
 
 ### Jeito manual
 
 1. **Supabase** — crie um projeto em supabase.com (região São Paulo) e rode `supabase/setup.sql` no SQL Editor
-   (ou `npx supabase@2.122.0 link --project-ref <ref> && npx supabase@2.122.0 db push`). Em *Authentication →
-   URL Configuration*, coloque a URL da Vercel em *Site URL*, e desligue *Confirm email* (ou configure um SMTP próprio).
+   (ou `npx supabase@2.122.0 link --project-ref <ref> && npx supabase@2.122.0 db push`).
 2. **Vercel** — importe o repositório com *Root Directory* `financas` e configure as variáveis abaixo.
 3. **Resend** (opcional, e-mails) — verifique um domínio e gere uma API key. Sem domínio verificado, o Resend
    só entrega para o e-mail dono da conta.
@@ -71,14 +78,16 @@ npm run lint
 |---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API (a integração da Vercel já cria) |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ou `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → API Keys (a integração já cria a *anon*) |
-| `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API Keys — só servidor (a integração já cria a *service_role*) |
+| `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API Keys — só servidor (a integração já cria a *service_role*); obrigatória no modo sem login |
 | `CRON_SECRET` | qualquer texto longo e aleatório (e-mails de alerta) |
 | `RESEND_API_KEY` | Resend → API Keys |
 | `ALERT_FROM_EMAIL` | ex.: `Finanças da Casa <alertas@seudominio.com.br>` |
 | `APP_URL` | URL pública do app na Vercel |
+| `ALERT_EMAILS` | e-mails que recebem os alertas, separados por vírgula (ex.: `voce@gmail.com,paola@gmail.com`) |
 
 O cron diário está em `vercel.json` (11:00 UTC = 08:00 em São Paulo) e chama `/api/cron/alertas`
 com `Authorization: Bearer $CRON_SECRET`. Sem `RESEND_API_KEY` a rota só simula e devolve o que enviaria.
+No modo sem login, os alertas vão para `ALERT_EMAILS`, com a antecedência e o liga/desliga das Configurações.
 Variáveis `NEXT_PUBLIC_*` só valem depois de um novo deploy (*Deployments → Redeploy*).
 
 ## Regras de cálculo (resumo)
@@ -108,5 +117,6 @@ Variáveis `NEXT_PUBLIC_*` só valem depois de um novo deploy (*Deployments → 
 | `lib/*-data.ts` | leitura do banco e conversão para os tipos do motor |
 | `supabase/migrations/` | schema, RLS e funções SQL |
 | `tests/db/` | testes de RLS e funções SQL (um usuário de fora da casa não lê nem grava nada) |
-| `app/(app)/` | telas internas (exigem login e casa) |
+| `app/(app)/` | telas internas (o proxy entra sozinho como David ou Paola; `/iniciar` prepara contas e casa) |
+| `lib/auto-auth.ts`, `lib/bootstrap.ts` | modo sem login: contas internas e primeiro acesso |
 | `app/api/cron/alertas/` | job diário de e-mails |

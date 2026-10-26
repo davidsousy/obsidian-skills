@@ -1,10 +1,12 @@
 import { Button, Card, Field, FlashMessages, Input, Select } from "@/components/ui";
+import { isInternalEmail } from "@/lib/auto-auth";
 import { formatAmount } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
-import { regenerateInvite, updateHousehold, updateMyPreferences } from "./actions";
+import { updateHousehold, updateMyPreferences } from "./actions";
 
 export default async function ConfiguracoesPage({ searchParams }: PageProps<"/configuracoes">) {
-  const { household, members, me, user } = await requireHousehold();
+  const { household, me, user } = await requireHousehold();
+  const internal = isInternalEmail(user.email);
 
   return (
     <div className="max-w-4xl space-y-6">
@@ -59,7 +61,7 @@ export default async function ConfiguracoesPage({ searchParams }: PageProps<"/co
         </form>
       </Card>
 
-      <Card title="Minhas preferências">
+      <Card title={`Preferências de ${me.display_name}`}>
         <form action={updateMyPreferences} className="grid gap-4 md:grid-cols-3">
           <Field label="Meu nome">
             <Input name="display_name" defaultValue={me.display_name} required />
@@ -69,37 +71,17 @@ export default async function ConfiguracoesPage({ searchParams }: PageProps<"/co
           </Field>
           <label className="flex items-center gap-2 self-end pb-2 text-sm">
             <input name="email_alerts" type="checkbox" defaultChecked={me.email_alerts} className="size-4" />
-            Receber alertas por e-mail ({user.email})
+            Receber alertas por e-mail{internal ? "" : ` (${user.email})`}
           </label>
+          {internal && (
+            <p className="text-xs text-slate-500 md:col-span-3">
+              Os e-mails vão para os endereços da variável <code>ALERT_EMAILS</code> na Vercel (separados por vírgula).
+            </p>
+          )}
           <div className="md:col-span-3">
             <Button type="submit">Salvar preferências</Button>
           </div>
         </form>
-      </Card>
-
-      <Card title="Membros da casa">
-        <ul className="mb-4 divide-y divide-slate-100">
-          {members.map((m) => (
-            <li key={m.user_id} className="flex items-center justify-between py-2">
-              <span className="font-medium">
-                {m.display_name}
-                {m.user_id === user.id && <span className="ml-2 text-xs text-slate-500">(você)</span>}
-              </span>
-              <span className="text-sm text-slate-500">
-                {m.email_alerts ? `alertas por e-mail ${m.alert_days_before} dia(s) antes` : "sem alertas por e-mail"}
-              </span>
-            </li>
-          ))}
-        </ul>
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-slate-600">Código de convite:</span>
-          <code className="rounded bg-slate-100 px-3 py-1 font-mono text-lg tracking-widest">{household.invite_code}</code>
-          <form action={regenerateInvite}>
-            <Button variant="secondary" type="submit">
-              Gerar novo código
-            </Button>
-          </form>
-        </div>
       </Card>
     </div>
   );

@@ -23,19 +23,19 @@ export type Member = {
   alert_days_before: number;
 };
 
-/** Usuário logado (ou redireciona para /entrar). */
+/** Usuário da sessão (o proxy entra sozinho; sem sessão, /iniciar prepara as contas). */
 export const requireUser = cache(async () => {
   const supabase = await createClient();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) redirect("/entrar");
+  if (!data.user) redirect("/iniciar");
   return { supabase, user: data.user };
 });
 
-/** Usuário + casa + membros (ou redireciona para /casa se ainda não tem casa). */
+/** Usuário + casa + membros (sem casa, /iniciar cria a casa e os dados iniciais). */
 export const requireHousehold = cache(async () => {
   const { supabase, user } = await requireUser();
   const { data: house } = await supabase.from("households").select("*").maybeSingle();
-  if (!house) redirect("/casa");
+  if (!house) redirect("/iniciar");
   const { data: members } = await supabase
     .from("household_members")
     .select("user_id, display_name, email_alerts, alert_days_before")

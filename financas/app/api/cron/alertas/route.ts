@@ -30,6 +30,11 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const today = url.searchParams.get("data") ?? todayISO(); // ?data=aaaa-mm-dd para testar
   const appUrl = process.env.APP_URL ?? url.origin;
-  const result = await runAlerts(admin, today, appUrl, send);
+  // sem login, David e Paola usam contas internas sem caixa de entrada: os avisos vão para ALERT_EMAILS
+  const extra = (process.env.ALERT_EMAILS ?? "")
+    .split(",")
+    .map((e) => e.trim())
+    .filter((e) => e.includes("@"));
+  const result = await runAlerts(admin, today, appUrl, send, extra);
   return Response.json(result);
 }

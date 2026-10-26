@@ -10,12 +10,12 @@ export function connect(): pg.Client {
 }
 
 /** Cria um usuário direto em auth.users (como superusuário). */
-export async function createUser(db: pg.Client, label: string): Promise<string> {
+export async function createUser(db: pg.Client, label: string, domain = "teste.local"): Promise<string> {
   const id = randomUUID();
   await db.query(
     `insert into auth.users (id, email, aud, role, raw_app_meta_data, raw_user_meta_data)
      values ($1, $2, 'authenticated', 'authenticated', '{}', '{}')`,
-    [id, `${label}-${id.slice(0, 8)}@teste.local`],
+    [id, `${label}-${id.slice(0, 8)}@${domain}`],
   );
   return id;
 }

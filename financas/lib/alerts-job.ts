@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { buildAlertEmail } from "@/lib/alert-email";
+import { isInternalEmail } from "@/lib/auto-auth";
 import { mapFixedCost } from "@/lib/costs-data";
 import { mapDebts } from "@/lib/debts-data";
 import { emailDues, upcomingDues, type DueItem } from "@/lib/finance/alerts";
@@ -16,17 +17,38 @@ export type JobResult = {
   errors: string[];
 };
 
+type Recipient = { household_id: string; user_id: string; email: string; display_name: string; alert_days_before: number };
+
 /**
  * Envia, para cada membro com alertas ativados, os vencimentos que caem daqui a `alert_days_before`
  * dias. Usa o client com service role (lê todas as casas). Sem `send`, só simula (não grava log).
+ * As contas internas (sem login) não têm caixa de entrada: quando David ou Paola estão com alertas
+ * ativados, a casa deles manda os avisos para `extraRecipients` (variável ALERT_EMAILS), com a
+ * antecedência escolhida nas Configurações.
  */
-export async function runAlerts(admin: SupabaseClient, today: ISODate, appUrl: string, send?: SendFn): Promise<JobResult> {
+export async function runAlerts(
+  admin: SupabaseClient,
+  today: ISODate,
+  appUrl: string,
+  send?: SendFn,
+  extraRecipients: string[] = [],
+): Promise<JobResult> {
   const result: JobResult = { date: today, dryRun: !send, sent: [], skippedAlreadySent: 0, errors: [] };
-  const { data: recipients, error } = await admin.rpc("alert_recipients");
+  const { data, error } = await admin.rpc("alert_recipients");
   if (error) throw new Error(error.message);
+  const rows = (data ?? []) as Recipient[];
+  const recipients = rows.filter((r) => !isInternalEmail(r.email));
+  // casa -> antecedências (dias) das contas internas com alertas ativados
+  const extraDays = new Map<string, Set<number>>();
+  if (extraRecipients.length) {
+    for (const r of rows.filter((r) => isInternalEmail(r.email))) {
+      extraDays.set(r.household_id, (extraDays.get(r.household_id) ?? new Set()).add(r.alert_days_before));
+    }
+  }
 
-  const byHouse = new Map<string, typeof recipients>();
-  for (const r of recipients ?? []) byHouse.set(r.household_id, [...(byHouse.get(r.household_id) ?? []), r]);
+  const byHouse = new Map<string, Recipient[]>();
+  for (const r of recipients) byHouse.set(r.household_id, [...(byHouse.get(r.household_id) ?? []), r]);
+  for (const h of extraDays.keys()) if (!byHouse.has(h)) byHouse.set(h, []);
 
   for (const [householdId, members] of byHouse) {
     const [debts, charges, payments, fixed] = await Promise.all([
@@ -53,7 +75,23 @@ export async function runAlerts(admin: SupabaseClient, today: ISODate, appUrl: s
       31,
     );
 
-    for (const m of members ?? []) {
+    // ALERT_EMAILS: um aviso por endereço e antecedência, sem registro (cada vencimento cai num único dia)
+    for (const days of extraDays.get(householdId) ?? []) {
+      const items = emailDues(dues, today, days);
+      if (items.length === 0) continue;
+      const email = buildAlertEmail("David e Paola", items, appUrl);
+      for (const to of extraRecipients) {
+        result.sent.push({ to, items: items.map((i) => ({ name: i.name, dueDate: i.dueDate, amountCents: i.amountCents })) });
+        if (!send) continue;
+        try {
+          await send({ to, ...email });
+        } catch (e) {
+          result.errors.push(`envio ${to}: ${(e as Error).message}`);
+        }
+      }
+    }
+
+    for (const m of members) {
       let items: DueItem[] = emailDues(dues, today, m.alert_days_before);
       if (items.length === 0) continue;
       const { data: logged } = await admin

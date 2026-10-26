@@ -58,11 +58,3 @@ export async function updateHousehold(formData: FormData) {
   revalidatePath("/", "layout");
   redirect(withParam(PATH, "ok", "Configurações da casa salvas."));
 }
-
-export async function regenerateInvite() {
-  const { supabase } = await requireHousehold();
-  const { error } = await supabase.rpc("regenerate_invite_code");
-  if (error) fail(friendlyError(error.message));
-  revalidatePath(PATH);
-  redirect(withParam(PATH, "ok", "Novo código gerado. O antigo deixou de valer."));
-}
