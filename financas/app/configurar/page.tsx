@@ -1,7 +1,10 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { supabaseConfigured } from "@/lib/supabase/env";
 
 export const dynamic = "force-dynamic";
+
+export const metadata: Metadata = { title: "Configurar" };
 
 export default function ConfigurarPage() {
   if (supabaseConfigured()) redirect("/painel");

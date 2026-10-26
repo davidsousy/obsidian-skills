@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DueRow, itemHref, MonthNav } from "@/components/dashboard";
 import { Stat } from "@/components/ui";
@@ -23,6 +24,8 @@ const TONE_CLASS = {
   default: "bg-parcelado-bg text-yellow-900",
   custo: "bg-slate-100 text-slate-700",
 };
+
+export const metadata: Metadata = { title: "Calendário de vencimentos" };
 
 export default async function CalendarioPage({ searchParams }: PageProps<"/calendario">) {
   const { mes } = (await searchParams) as { mes?: string };

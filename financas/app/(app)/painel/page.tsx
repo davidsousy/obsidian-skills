@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryBars, CostLegend, daysLabel, DebtProgressBar, DueRow, itemHref } from "@/components/dashboard";
 import { RiskBadge, StatusBadge } from "@/components/debt-badges";
@@ -7,10 +8,12 @@ import { loadDebts, loadPayments } from "@/lib/debts-data";
 import { interestOverPaid, overdueItems, upcomingDues } from "@/lib/finance/alerts";
 import { fixedMonthlyTotal } from "@/lib/finance/costs";
 import { costsByCategory, debtProgress, loanInterest } from "@/lib/finance/dashboard";
-import { dueDateInMonth, formatDateBR, todayISO } from "@/lib/finance/dates";
+import { diffDays, dueDateInMonth, formatDateBR, todayISO } from "@/lib/finance/dates";
 import { debtGroup, debtTotals } from "@/lib/finance/debts";
 import { formatBRL, formatPercent } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
+
+export const metadata: Metadata = { title: "Painel" };
 
 export default async function PainelPage() {
   const { supabase } = await requireHousehold();
@@ -120,6 +123,7 @@ export default async function PainelPage() {
                   name={d.name}
                   detail={daysLabel(today, d.dueDate)}
                   amount={d.amountCents}
+                  tone={diffDays(today, d.dueDate) <= 7 ? "breve" : "default"}
                 />
               ))}
             </ul>

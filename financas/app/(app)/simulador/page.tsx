@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Button, Card, Field, Input, Select } from "@/components/ui";
 import { addMonths, endOfMonthISO, formatDateBR, formatMonthBR } from "@/lib/finance/dates";
@@ -59,6 +60,8 @@ function payoff(p: PlanResult): string {
   if (p.nearest.date) return formatDateBR(p.nearest.date);
   return p.nearest.reason === "minimos" ? `não cobre os mínimos de ${formatMonthBR(p.nearest.shortfallMonth!)}` : "mais de 10 anos";
 }
+
+export const metadata: Metadata = { title: "Simulador" };
 
 export default async function SimuladorPage({ searchParams }: PageProps<"/simulador">) {
   const sp = (await searchParams) as Search;

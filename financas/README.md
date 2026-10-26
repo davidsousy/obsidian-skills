@@ -16,7 +16,9 @@ Em "Mais": Calendário de vencimentos, Renda, Plano, Simulador e Configurações
   parcelado / atrasos e agiotas); juros dos agiotas. Clique em qualquer conta para pagar ou editar.
 - **Composição da dívida total** (`/composicao`): rosca por tipo e todas as dívidas (antes era a tela Dívidas).
 - **Calendário de vencimentos** e **Resumo do mês** (renda, custos fixos, gastos variáveis, dívidas pagas, sobra ou
-  falta, parcelas e juros do mês, pagamentos lançados) navegam por mês (`?mes=aaaa-mm`).
+  falta, renda necessária do Plano, parcelas e juros do mês, pagamentos lançados) navegam por mês (`?mes=aaaa-mm`).
+- Vencimentos em até 7 dias ficam destacados; "+ Nova dívida" em Em atraso, Agiotas e Parceladas já abre com o tipo
+  certo; enquanto uma tela carrega aparece "Carregando…".
 
 ## Módulos
 

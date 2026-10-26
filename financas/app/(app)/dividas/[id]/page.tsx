@@ -58,6 +58,9 @@ export default async function DividaPage({ params, searchParams }: PageProps<"/d
         <div className="text-right">
           <p className="text-sm text-slate-500">Saldo atual</p>
           <p className={`num text-4xl font-bold ${groupStyle[group].text}`}>{formatBRL(debt.currentBalanceCents)}</p>
+          <Link href={`/dividas/${debt.id}/editar`} className="mt-1 inline-block text-sm font-semibold underline">
+            Editar dívida
+          </Link>
         </div>
       </header>
       <FlashMessages searchParams={searchParams as Promise<{ erro?: string; ok?: string }>} />

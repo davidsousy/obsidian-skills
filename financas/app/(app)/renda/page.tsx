@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { HourlyChart } from "@/components/hourly-chart";
 import { Button, Card, Field, FlashMessages, Input, Select, Stat } from "@/components/ui";
 import { loadFixedCosts } from "@/lib/costs-data";
@@ -15,6 +16,8 @@ function windowLabel(s: WindowStats): string {
   if (s.covered === 0) return "sem lançamentos";
   return s.partial ? `parcial: ${s.covered} de ${s.window} dias com histórico` : `últimos ${s.window} dias`;
 }
+
+export const metadata: Metadata = { title: "Renda" };
 
 export default async function RendaPage({ searchParams }: PageProps<"/renda">) {
   const { supabase, household, members, me } = await requireHousehold();

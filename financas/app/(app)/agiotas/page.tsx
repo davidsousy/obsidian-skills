@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DebtSection } from "@/components/debt-list";
 import { Card, LinkButton, Stat } from "@/components/ui";
 import { loadDebts, loadPayments } from "@/lib/debts-data";
@@ -5,6 +6,8 @@ import { loanInterest } from "@/lib/finance/dashboard";
 import { debtGroup } from "@/lib/finance/debts";
 import { formatBRL, formatPercent } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
+
+export const metadata: Metadata = { title: "Agiotas" };
 
 export default async function AgiotasPage() {
   const { supabase } = await requireHousehold();
@@ -20,7 +23,7 @@ export default async function AgiotasPage() {
           <h1 className="text-3xl font-bold">Agiotas</h1>
           <p className="text-slate-500">Juros sobre o principal todo mês. Clique em um para registrar pagamento ou editar.</p>
         </div>
-        <LinkButton href="/dividas/nova">+ Nova dívida</LinkButton>
+        <LinkButton href="/dividas/nova?tipo=agiota">+ Nova dívida</LinkButton>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -1,8 +1,11 @@
+import type { Metadata } from "next";
 import { Button, Card, Field, FlashMessages, Input, Select } from "@/components/ui";
 import { isInternalEmail } from "@/lib/auto-auth";
 import { formatAmount } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
 import { updateHousehold, updateMyPreferences } from "./actions";
+
+export const metadata: Metadata = { title: "Configurações" };
 
 export default async function ConfiguracoesPage({ searchParams }: PageProps<"/configuracoes">) {
   const { household, me, user } = await requireHousehold();

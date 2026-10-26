@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { PEOPLE } from "@/lib/auto-auth";
 import { databaseRegion, nearestVercelRegion } from "@/lib/regions";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -91,6 +92,8 @@ async function runChecks(): Promise<Check[]> {
   checks.push({ label: "Custos fixos cadastrados", ok: (fixed.count ?? 0) > 0 ? true : null, detail: String(fixed.count ?? 0) });
   return checks;
 }
+
+export const metadata: Metadata = { title: "Diagnóstico" };
 
 export default async function DiagnosticoPage({ searchParams }: PageProps<"/diagnostico">) {
   const { erro } = (await searchParams) as { erro?: string };

@@ -1,17 +1,27 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DueRow, MonthNav } from "@/components/dashboard";
 import { Card, LinkButton, Stat } from "@/components/ui";
 import { loadFixedCosts, loadVariableExpenses } from "@/lib/costs-data";
 import { loadDebts, loadPayments } from "@/lib/debts-data";
 import { duesInMonth, monthSummary } from "@/lib/finance/dashboard";
-import { formatDateBR, monthFromParam, monthStart, todayISO } from "@/lib/finance/dates";
+import { formatDateBR, formatMonthBR, formatMonthLongBR, monthFromParam, monthStart, todayISO } from "@/lib/finance/dates";
 import { loadIncome } from "@/lib/income-data";
 import { formatBRL } from "@/lib/finance/money";
+import { computePlan, loadPlanContext } from "@/lib/plan-data";
 import { requireHousehold } from "@/lib/session";
+
+const VIABILITY = {
+  viavel: { label: "Viável", className: "bg-quitado text-white" },
+  apertado: { label: "Apertado", className: "bg-parcelado text-white" },
+  inviavel: { label: "Inviável", className: "bg-atraso text-white" },
+};
+
+export const metadata: Metadata = { title: "Resumo do mês" };
 
 export default async function ResumoPage({ searchParams }: PageProps<"/resumo">) {
   const { mes } = (await searchParams) as { mes?: string };
-  const { supabase, members } = await requireHousehold();
+  const { supabase, members, household } = await requireHousehold();
   const today = todayISO();
   const month = monthFromParam(mes, today);
   const [debts, payments, fixedCosts, expenses, income] = await Promise.all([
@@ -32,6 +42,12 @@ export default async function ResumoPage({ searchParams }: PageProps<"/resumo">)
     ],
   });
   const debtDues = duesInMonth(month, debts, payments, fixedCosts).filter((d) => d.source === "debt");
+  // renda necessária do Plano (o plano começa no mês seguinte a hoje)
+  const plan = household.target_date
+    ? computePlan(await loadPlanContext(supabase, household), household.target_date, household.tight_margin_pct)
+    : null;
+  const planMonth = plan?.schedule.months.find((m) => m.month === month) ?? null;
+  const firstPlanMonth = plan?.schedule.months[0] ?? null;
   const paidHere = payments.filter((p) => monthStart(p.paidOn) === month);
   const names = new Map(members.map((m) => [m.user_id, m.display_name]));
   const debtName = new Map(debts.map((d) => [d.id, d.name]));
@@ -74,6 +90,52 @@ export default async function ResumoPage({ searchParams }: PageProps<"/resumo">)
             Composição da dívida total
           </LinkButton>
         </div>
+      </Card>
+
+      <Card
+        title={
+          <span className="flex flex-wrap items-center justify-between gap-2">
+            Renda necessária (Plano)
+            {plan && (
+              <span className={`rounded-full px-2.5 py-0.5 text-xs font-bold ${VIABILITY[plan.viability.status].className}`}>
+                {VIABILITY[plan.viability.status].label}
+              </span>
+            )}
+          </span>
+        }
+      >
+        {!household.target_date ? (
+          <p className="text-sm text-slate-600">Defina a data-alvo no Plano para ver quanto precisa entrar por mês.</p>
+        ) : !plan ? (
+          <p className="text-sm text-slate-600">A data-alvo ({formatDateBR(household.target_date)}) já passou ou não dá para calcular. Ajuste no Plano.</p>
+        ) : planMonth ? (
+          <>
+            <p className="num text-3xl font-bold">{formatBRL(planMonth.income)}</p>
+            <p className="text-sm text-slate-600">
+              necessários em {formatMonthBR(month)} para quitar tudo até {formatDateBR(plan.target)}
+            </p>
+            <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+              <div
+                className="h-2 rounded-full bg-quitado"
+                style={{ width: `${Math.min(100, planMonth.income > 0 ? (summary.income / planMonth.income) * 100 : 0)}%` }}
+              />
+            </div>
+            <p className="num mt-1 text-sm text-slate-600">
+              {formatBRL(summary.income)} recebidos ·{" "}
+              {summary.income >= planMonth.income ? "meta do mês batida" : `faltam ${formatBRL(planMonth.income - summary.income)}`}
+            </p>
+          </>
+        ) : firstPlanMonth && month < firstPlanMonth.month ? (
+          <p className="text-sm text-slate-600">
+            O plano começa em {formatMonthLongBR(firstPlanMonth.month)}: <strong className="num">{formatBRL(firstPlanMonth.income)}</strong> no
+            primeiro mês para quitar tudo até {formatDateBR(plan.target)}.
+          </p>
+        ) : (
+          <p className="text-sm text-slate-600">Este mês fica depois da data-alvo ({formatDateBR(plan.target)}).</p>
+        )}
+        <Link href="/plano" className="mt-3 inline-block text-sm font-semibold underline">
+          Ver plano
+        </Link>
       </Card>
 
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">

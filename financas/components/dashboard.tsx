@@ -108,9 +108,15 @@ export function DueRow({
   name: string;
   detail?: string;
   amount: number;
-  tone?: "default" | "atraso" | "pago";
+  /** breve = vence em até 7 dias */
+  tone?: "default" | "breve" | "atraso" | "pago";
 }) {
-  const chip = tone === "atraso" ? "bg-atraso-bg text-atraso" : tone === "pago" ? "bg-quitado-bg text-quitado" : "bg-slate-100 text-slate-700";
+  const chip = {
+    default: "bg-slate-100 text-slate-700",
+    breve: "bg-amber-100 text-amber-900",
+    atraso: "bg-atraso-bg text-atraso",
+    pago: "bg-quitado-bg text-quitado",
+  }[tone];
   return (
     <li>
       <Link href={href} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-slate-50">

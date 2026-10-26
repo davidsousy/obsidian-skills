@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DueRow } from "@/components/dashboard";
 import { DebtSection } from "@/components/debt-list";
 import { Card, LinkButton, Stat } from "@/components/ui";
@@ -7,6 +8,8 @@ import { dueDateInMonth, todayISO } from "@/lib/finance/dates";
 import { debtGroup } from "@/lib/finance/debts";
 import { formatBRL } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
+
+export const metadata: Metadata = { title: "Em atraso" };
 
 export default async function AtrasosPage() {
   const { supabase } = await requireHousehold();
@@ -27,7 +30,7 @@ export default async function AtrasosPage() {
           <h1 className="text-3xl font-bold">Em atraso</h1>
           <p className="text-slate-500">Contas vencidas. Clique em uma para registrar pagamento ou editar.</p>
         </div>
-        <LinkButton href="/dividas/nova">+ Nova dívida</LinkButton>
+        <LinkButton href="/dividas/nova?tipo=atraso">+ Nova dívida</LinkButton>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

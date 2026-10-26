@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { DebtSection } from "@/components/debt-list";
 import { Card, LinkButton, Stat } from "@/components/ui";
 import { loadDebts } from "@/lib/debts-data";
@@ -5,6 +6,8 @@ import { isOpenEnded } from "@/lib/finance/dashboard";
 import { debtGroup } from "@/lib/finance/debts";
 import { formatBRL } from "@/lib/finance/money";
 import { requireHousehold } from "@/lib/session";
+
+export const metadata: Metadata = { title: "Dívidas parceladas" };
 
 export default async function ParceladasPage() {
   const { supabase } = await requireHousehold();
@@ -21,7 +24,7 @@ export default async function ParceladasPage() {
           <h1 className="text-3xl font-bold">Dívidas parceladas</h1>
           <p className="text-slate-500">Parcelas em dia. Clique em uma para registrar pagamento ou editar.</p>
         </div>
-        <LinkButton href="/dividas/nova">+ Nova dívida</LinkButton>
+        <LinkButton href="/dividas/nova?tipo=parcelada">+ Nova dívida</LinkButton>
       </header>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">

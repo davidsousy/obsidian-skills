@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import { Fragment } from "react";
 import { PlanVerdict } from "@/components/plan-verdict";
 import { Button, Card, Field, FlashMessages, Input } from "@/components/ui";
@@ -10,6 +11,8 @@ import { requireHousehold } from "@/lib/session";
 import { moveDebt, resetOrder, setTargetDate } from "./actions";
 
 const GROUP_NAME = ["Agiota", "Prioridade de risco", "Com juros/multa", "Sem juros"];
+
+export const metadata: Metadata = { title: "Plano" };
 
 export default async function PlanoPage({ searchParams }: PageProps<"/plano">) {
   const { supabase, household } = await requireHousehold();

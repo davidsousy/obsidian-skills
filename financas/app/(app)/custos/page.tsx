@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { CategoryBars, CostLegend } from "@/components/dashboard";
 import { FixedCostForm } from "@/components/fixed-cost-form";
@@ -38,6 +39,8 @@ function Tabs({ active }: { active: "fixos" | "variaveis" }) {
     </div>
   );
 }
+
+export const metadata: Metadata = { title: "Custos fixos" };
 
 export default async function CustosPage({ searchParams }: PageProps<"/custos">) {
   const params = (await searchParams) as Search;

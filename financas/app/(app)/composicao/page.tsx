@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { DebtSection, GROUP_PAGE } from "@/components/debt-list";
 import { Button, Card, FlashMessages, LinkButton } from "@/components/ui";
@@ -37,6 +38,8 @@ function Donut({ parts, total }: { parts: { value: number; color: string }[]; to
     </div>
   );
 }
+
+export const metadata: Metadata = { title: "Composição da dívida total" };
 
 export default async function ComposicaoPage({ searchParams }: PageProps<"/composicao">) {
   const { supabase } = await requireHousehold();

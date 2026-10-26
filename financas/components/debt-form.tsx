@@ -2,34 +2,8 @@
 
 import { useState } from "react";
 import { Button, Field, Input, Select } from "@/components/ui";
-import type { DebtKind, DebtStatus } from "@/lib/finance/debts";
-
-export type DebtFormValues = {
-  name: string;
-  creditor: string;
-  kind: DebtKind;
-  status: DebtStatus;
-  dueDay: string;
-  notes: string;
-  riskPriority: boolean;
-  original: string;
-  installment: string;
-  installmentsRemaining: string;
-  installmentsUnknown: boolean;
-  monthlyRate: string;
-  principal: string;
-  accrualStart: string;
-  openAmount: string;
-  originalDueDate: string;
-  lateFeeRate: string;
-  lateInterestRate: string;
-};
-
-export const EMPTY_DEBT: DebtFormValues = {
-  name: "", creditor: "", kind: "parcelada_sem_juros", status: "em_dia", dueDay: "", notes: "", riskPriority: false,
-  original: "", installment: "", installmentsRemaining: "", installmentsUnknown: false, monthlyRate: "", principal: "",
-  accrualStart: "", openAmount: "", originalDueDate: "", lateFeeRate: "", lateInterestRate: "",
-};
+import type { DebtFormValues } from "@/components/debt-form-values";
+import type { DebtKind } from "@/lib/finance/debts";
 
 const KIND_OPTIONS: { value: DebtKind; label: string; help: string }[] = [
   { value: "parcelada_sem_juros", label: "Parcelada sem juros", help: "Saldo = parcela × parcelas restantes." },

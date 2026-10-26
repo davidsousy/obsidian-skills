@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { DebtForm, type DebtFormValues } from "@/components/debt-form";
+import { DebtForm } from "@/components/debt-form";
+import type { DebtFormValues } from "@/components/debt-form-values";
 import { Card, FlashMessages } from "@/components/ui";
 import { loadDebts, type DebtRow } from "@/lib/debts-data";
 import { formatAmount } from "@/lib/finance/money";

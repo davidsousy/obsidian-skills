@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Finanças da Casa",
+  title: { default: "Finanças", template: "%s · Finanças" },
   description: "Gestão financeira e quitação de dívidas — David & Paola",
 };
 
