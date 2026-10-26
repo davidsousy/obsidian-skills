@@ -14,13 +14,16 @@ export default function ConfigurarPage() {
       </p>
       <ol className="list-decimal space-y-2 pl-6 text-slate-700">
         <li>
-          Na Vercel, abra o projeto → <strong>Storage</strong> → <strong>Create Database</strong> → <strong>Supabase</strong>{" "}
-          (ou crie o projeto em supabase.com e cadastre as variáveis manualmente).
+          Na Vercel, abra este projeto → <strong>Storage</strong> → <strong>Create Database</strong> → <strong>Supabase</strong>{" "}
+          (região São Paulo). As variáveis do banco são criadas sozinhas.
         </li>
         <li>
-          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>financas/supabase/setup.sql</code> e rode.
+          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>supabase/setup.sql</code> e rode. Em{" "}
+          <strong>Authentication → URL Configuration</strong>, coloque a URL deste site em <em>Site URL</em>.
         </li>
-        <li>Faça um novo deploy (Deployments → Redeploy).</li>
+        <li>
+          Na Vercel, faça um novo deploy (<strong>Deployments → Redeploy</strong>).
+        </li>
       </ol>
     </main>
   );

@@ -1,5 +1,6 @@
 "use server";
 
+import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { friendlyError, withParam } from "@/lib/errors";
 import { createClient } from "@/lib/supabase/server";
@@ -20,7 +21,12 @@ export async function signIn(formData: FormData) {
 
 export async function signUp(formData: FormData) {
   const supabase = await createClient();
-  const { data, error } = await supabase.auth.signUp(credentials(formData));
+  // o link de confirmação do e-mail volta para este mesmo endereço (o Supabase precisa permitir a URL)
+  const origin = (await headers()).get("origin") ?? "";
+  const { data, error } = await supabase.auth.signUp({
+    ...credentials(formData),
+    options: origin ? { emailRedirectTo: `${origin}/entrar` } : undefined,
+  });
   if (error) redirect(withParam("/entrar", "erro", friendlyError(error.message)));
   if (!data.session) {
     redirect(withParam("/entrar", "ok", "Conta criada. Confirme pelo link enviado ao seu e-mail e depois entre."));

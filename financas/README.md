@@ -41,31 +41,39 @@ npm run lint
 
 ## Publicar (Supabase + Vercel + Resend)
 
-1. **Supabase** — crie um projeto em supabase.com (região São Paulo) e aplique as migrações:
-   ```bash
-   npx supabase login
-   npx supabase link --project-ref <ref-do-projeto>
-   npx supabase db push
-   ```
-   Em *Authentication → URL Configuration*, coloque a URL da Vercel em *Site URL*.
-   Se quiser entrar sem confirmar e-mail, desative *Confirm email* em *Authentication → Providers → Email*.
-2. **Resend** — crie a conta, verifique um domínio e gere uma API key. Sem domínio verificado, o Resend
-   só entrega para o e-mail dono da conta (o remetente de teste é `onboarding@resend.dev`).
-3. **Vercel** — importe o projeto (diretório raiz: `financas`) e configure as variáveis de ambiente:
+### Jeito rápido (um link)
 
-   | Variável | Onde pegar |
-   |---|---|
-   | `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API |
-   | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Supabase → API Keys (publishable) |
-   | `SUPABASE_SECRET_KEY` | Supabase → API Keys (secret) — só servidor |
-   | `CRON_SECRET` | qualquer texto longo e aleatório |
-   | `RESEND_API_KEY` | Resend → API Keys |
-   | `ALERT_FROM_EMAIL` | ex.: `Finanças da Casa <alertas@seudominio.com.br>` |
-   | `APP_URL` | URL pública do app na Vercel |
+[![Deploy com Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fclaude%2Ffinancial-debt-management-system-9rxgb9%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa&stores=%5B%7B%22type%22%3A%22integration%22%2C%22integrationSlug%22%3A%22supabase%22%2C%22productSlug%22%3A%22supabase%22%7D%5D)
 
-   O cron diário está em `vercel.json` (11:00 UTC = 08:00 em São Paulo) e chama `/api/cron/alertas`
-   com `Authorization: Bearer $CRON_SECRET`. Sem `RESEND_API_KEY` a rota só simula e devolve o que enviaria.
-   Para testar um dia específico: `GET /api/cron/alertas?data=2026-10-27` com o mesmo cabeçalho.
+1. Clique no botão, entre na Vercel e confirme. Ele cria um repositório só com o app e um projeto na Vercel.
+2. No mesmo fluxo, aceite criar o **Supabase** (região São Paulo). As variáveis do banco são preenchidas sozinhas.
+3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*):
+   - **SQL Editor:** cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run*;
+   - **Authentication → URL Configuration:** coloque a URL do app (`https://….vercel.app`) em *Site URL*.
+4. Pronto: abra a URL, crie a conta, confirme pelo e-mail e crie a casa.
+
+### Jeito manual
+
+1. **Supabase** — crie um projeto em supabase.com (região São Paulo) e rode `supabase/setup.sql` no SQL Editor
+   (ou `npx supabase link --project-ref <ref> && npx supabase db push`). Em *Authentication → URL Configuration*,
+   coloque a URL da Vercel em *Site URL*.
+2. **Vercel** — importe o repositório com *Root Directory* `financas` e configure as variáveis abaixo.
+3. **Resend** (opcional, e-mails) — verifique um domínio e gere uma API key. Sem domínio verificado, o Resend
+   só entrega para o e-mail dono da conta.
+
+| Variável | Onde pegar |
+|---|---|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase → Project Settings → API (a integração da Vercel já cria) |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` ou `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase → API Keys (a integração já cria a *anon*) |
+| `SUPABASE_SECRET_KEY` ou `SUPABASE_SERVICE_ROLE_KEY` | Supabase → API Keys — só servidor (a integração já cria a *service_role*) |
+| `CRON_SECRET` | qualquer texto longo e aleatório (e-mails de alerta) |
+| `RESEND_API_KEY` | Resend → API Keys |
+| `ALERT_FROM_EMAIL` | ex.: `Finanças da Casa <alertas@seudominio.com.br>` |
+| `APP_URL` | URL pública do app na Vercel |
+
+O cron diário está em `vercel.json` (11:00 UTC = 08:00 em São Paulo) e chama `/api/cron/alertas`
+com `Authorization: Bearer $CRON_SECRET`. Sem `RESEND_API_KEY` a rota só simula e devolve o que enviaria.
+Variáveis `NEXT_PUBLIC_*` só valem depois de um novo deploy (*Deployments → Redeploy*).
 
 ## Regras de cálculo (resumo)
 
