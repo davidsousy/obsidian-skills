@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { cache } from "react";
+import { bootstrapHousehold } from "@/lib/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 
 export type Household = {
@@ -31,11 +32,25 @@ export const requireUser = cache(async () => {
   return { supabase, user: data.user };
 });
 
-/** Usuário + casa + membros (sem casa, /iniciar cria a casa e os dados iniciais). */
+/** Usuário + casa + membros (sem casa, cria a casa e os dados iniciais aqui mesmo). */
 export const requireHousehold = cache(async () => {
   const { supabase, user } = await requireUser();
-  const { data: house } = await supabase.from("households").select("*").maybeSingle();
-  if (!house) redirect("/iniciar");
+  let { data: house } = await supabase.from("households").select("*").maybeSingle();
+  if (!house) {
+    // primeiro acesso: prepara sem redirecionar (redirecionar para a rota /iniciar no meio de uma
+    // navegação do cliente deixava a tela em branco)
+    let householdId: string | null = null;
+    let problem: string | null = null;
+    try {
+      ({ householdId } = await bootstrapHousehold());
+    } catch (e) {
+      problem = (e as Error).message;
+    }
+    if (!householdId) redirect(`/diagnostico?erro=${encodeURIComponent(problem ?? "Não foi possível preparar a casa.")}`);
+    // filtra pelo id: um GET idêntico ao de cima viria da memória desta renderização (o Next memoriza o fetch)
+    ({ data: house } = await supabase.from("households").select("*").eq("id", householdId).maybeSingle());
+    if (!house) redirect("/iniciar"); // conta antiga (com login) sem casa: entra como David ou Paola
+  }
   const { data: members } = await supabase
     .from("household_members")
     .select("user_id, display_name, email_alerts, alert_days_before")

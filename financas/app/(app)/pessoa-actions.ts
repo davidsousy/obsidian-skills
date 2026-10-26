@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { parsePerson, personCredentials, PERSON_COOKIE } from "@/lib/auto-auth";
+import { parsePerson, PEOPLE, personCredentials, PERSON_COOKIE } from "@/lib/auto-auth";
+import { bootstrapHousehold } from "@/lib/bootstrap";
 import { createClient } from "@/lib/supabase/server";
 
 /** Troca quem está usando o app (David ↔ Paola), sem senha. */
@@ -19,7 +20,18 @@ export async function switchPerson(formData: FormData) {
   });
   const supabase = await createClient();
   await supabase.auth.signOut({ scope: "local" });
-  const { error } = await supabase.auth.signInWithPassword(await personCredentials(person));
-  if (error) redirect("/iniciar");
+  let { error } = await supabase.auth.signInWithPassword(await personCredentials(person));
+  if (error) {
+    // conta interna ausente ou com senha antiga: prepara de novo e tenta outra vez
+    let problem: string | null = null;
+    try {
+      await bootstrapHousehold();
+    } catch (e) {
+      problem = (e as Error).message;
+    }
+    if (problem) redirect(`/diagnostico?erro=${encodeURIComponent(problem)}`);
+    ({ error } = await supabase.auth.signInWithPassword(await personCredentials(person)));
+    if (error) redirect(`/diagnostico?erro=${encodeURIComponent(`Não foi possível entrar como ${PEOPLE[person].name}: ${error.message}`)}`);
+  }
   revalidatePath("/", "layout");
 }
