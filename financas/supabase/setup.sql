@@ -1,13 +1,15 @@
--- Script único com todas as migrações, para colar no SQL Editor do Supabase (projeto novo, vazio).
--- Rode uma vez só. Gerado a partir de supabase/migrations/*.sql — não edite à mão.
+-- Script único com todas as migrações, para colar no SQL Editor do Supabase.
+-- Pode rodar mais de uma vez (só cria o que falta). Com a integração GitHub do Supabase, as migrações
+-- de supabase/migrations são aplicadas sozinhas e este arquivo não é necessário.
+-- Gerado a partir de supabase/migrations/*.sql — não edite à mão.
 
 -- ===== 20261025000001_households.sql =====
 -- Etapa 1: casa (household), membros e RLS.
 -- Todos os dados do sistema pertencem a uma casa; só membros da casa leem e escrevem.
 
-create type car_cost_allocation as enum ('por_hora', 'por_dia');
+do $$ begin create type car_cost_allocation as enum ('por_hora', 'por_dia'); exception when duplicate_object then null; end $$;
 
-create table households (
+create table if not exists households (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(trim(name)) > 0),
   target_date date,
@@ -23,7 +25,7 @@ create table households (
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
 
-create table household_members (
+create table if not exists household_members (
   household_id uuid not null references households (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
   display_name text not null check (length(trim(display_name)) > 0),
@@ -34,10 +36,10 @@ create table household_members (
 );
 
 -- Um usuário pertence a no máximo uma casa (simplifica o app: a casa do usuário é única).
-create unique index household_members_one_house_per_user on household_members (user_id);
+create unique index if not exists household_members_one_house_per_user on household_members (user_id);
 
 -- Usada em todas as políticas. security definer evita recursão de RLS em household_members.
-create function is_household_member(h uuid) returns boolean
+create or replace function is_household_member(h uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from household_members where household_id = h and user_id = auth.uid()
@@ -45,7 +47,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- Casa do usuário logado (ou null).
-create function current_household_id() returns uuid
+create or replace function current_household_id() returns uuid
 language sql stable security definer set search_path = public as $$
   select household_id from household_members where user_id = auth.uid();
 $$;
@@ -53,21 +55,25 @@ $$;
 alter table households enable row level security;
 alter table household_members enable row level security;
 
+drop policy if exists "membros leem a casa" on households;
 create policy "membros leem a casa" on households
   for select using (is_household_member(id));
+drop policy if exists "membros alteram a casa" on households;
 create policy "membros alteram a casa" on households
   for update using (is_household_member(id)) with check (is_household_member(id));
 -- Sem insert/delete direto: criação só via create_household().
 
+drop policy if exists "membros veem os membros da casa" on household_members;
 create policy "membros veem os membros da casa" on household_members
   for select using (is_household_member(household_id));
 -- Cada um edita só as próprias preferências (nome, alertas).
+drop policy if exists "membro edita a si mesmo" on household_members;
 create policy "membro edita a si mesmo" on household_members
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 -- Sem insert direto: entrada só via create_household() / join_household().
 
 -- O membro não pode trocar de casa via update.
-create function household_members_lock_keys() returns trigger
+create or replace function household_members_lock_keys() returns trigger
 language plpgsql as $$
 begin
   if new.household_id <> old.household_id or new.user_id <> old.user_id then
@@ -76,11 +82,12 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists household_members_lock_keys on household_members;
 create trigger household_members_lock_keys before update on household_members
   for each row execute function household_members_lock_keys();
 
 -- O invite_code só pode ser trocado por regenerate_invite_code().
-create function households_lock_invite() returns trigger
+create or replace function households_lock_invite() returns trigger
 language plpgsql as $$
 begin
   if new.invite_code <> old.invite_code and current_setting('app.regenerating_invite', true) is distinct from 'on' then
@@ -89,10 +96,11 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists households_lock_invite on households;
 create trigger households_lock_invite before update on households
   for each row execute function households_lock_invite();
 
-create function create_household(p_name text, p_display_name text) returns uuid
+create or replace function create_household(p_name text, p_display_name text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid;
@@ -109,7 +117,7 @@ begin
 end;
 $$;
 
-create function join_household(p_invite_code text, p_display_name text) returns uuid
+create or replace function join_household(p_invite_code text, p_display_name text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid;
@@ -129,7 +137,7 @@ begin
 end;
 $$;
 
-create function regenerate_invite_code() returns text
+create or replace function regenerate_invite_code() returns text
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid := current_household_id();
@@ -162,11 +170,11 @@ grant execute on function create_household(text, text), join_household(text, tex
 -- o excedente reduz o principal. Os juros do mês M são lançados uma vez, sobre o principal do momento
 -- do lançamento (início do ciclo); abatimento de principal no meio do mês só reduz o mês seguinte.
 
-create type debt_kind as enum ('parcelada_sem_juros', 'parcelada_com_juros', 'juros_sobre_principal', 'conta_em_atraso');
-create type debt_status as enum ('em_dia', 'em_atraso', 'em_negociacao', 'quitada');
-create type charge_kind as enum ('juros', 'multa');
+do $$ begin create type debt_kind as enum ('parcelada_sem_juros', 'parcelada_com_juros', 'juros_sobre_principal', 'conta_em_atraso'); exception when duplicate_object then null; end $$;
+do $$ begin create type debt_status as enum ('em_dia', 'em_atraso', 'em_negociacao', 'quitada'); exception when duplicate_object then null; end $$;
+do $$ begin create type charge_kind as enum ('juros', 'multa'); exception when duplicate_object then null; end $$;
 
-create table debts (
+create table if not exists debts (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
@@ -210,9 +218,9 @@ create table debts (
     end
   )
 );
-create index debts_household on debts (household_id);
+create index if not exists debts_household on debts (household_id);
 
-create table debt_charges (
+create table if not exists debt_charges (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -225,9 +233,9 @@ create table debt_charges (
   created_at timestamptz not null default now(),
   unique (debt_id, kind, reference_month)
 );
-create index debt_charges_debt on debt_charges (debt_id);
+create index if not exists debt_charges_debt on debt_charges (debt_id);
 
-create table debt_payments (
+create table if not exists debt_payments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -240,10 +248,10 @@ create table debt_payments (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index debt_payments_debt on debt_payments (debt_id, created_at);
+create index if not exists debt_payments_debt on debt_payments (debt_id, created_at);
 
 -- Quanto de cada pagamento foi para cada juros/multa (permite desfazer o pagamento com exatidão).
-create table debt_payment_allocations (
+create table if not exists debt_payment_allocations (
   payment_id uuid not null references debt_payments (id) on delete cascade,
   charge_id uuid not null references debt_charges (id) on delete cascade,
   household_id uuid not null references households (id) on delete cascade,
@@ -257,15 +265,19 @@ alter table debt_charges enable row level security;
 alter table debt_payments enable row level security;
 alter table debt_payment_allocations enable row level security;
 
+drop policy if exists "membros" on debts;
 create policy "membros" on debts for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 -- Juros, pagamentos e alocações: leitura direta; escrita só pelas funções abaixo (mantém saldos consistentes).
+drop policy if exists "membros leem" on debt_charges;
 create policy "membros leem" on debt_charges for select using (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_payments;
 create policy "membros leem" on debt_payments for select using (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_payment_allocations;
 create policy "membros leem" on debt_payment_allocations for select using (is_household_member(household_id));
 
 -- household_id e os campos de saldo não mudam por update direto (só pelas funções).
-create function debts_guard() returns trigger
+create or replace function debts_guard() returns trigger
 language plpgsql as $$
 begin
   if new.household_id <> old.household_id then
@@ -275,20 +287,21 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists debts_guard on debts;
 create trigger debts_guard before update on debts for each row execute function debts_guard();
 
 -- Data de hoje em São Paulo.
-create function today_sp() returns date
+create or replace function today_sp() returns date
 language sql stable as $$ select (now() at time zone 'America/Sao_Paulo')::date $$;
 
 -- 123456 → 'R$ 1.234,56' (para mensagens de erro).
-create function fmt_brl(cents bigint) returns text
+create or replace function fmt_brl(cents bigint) returns text
 language sql immutable as $$
   select 'R$ ' || translate(to_char(cents / 100.0, 'FM999G999G999G990D00'), ',.', '.,')
 $$;
 
 -- Saldo atual de cada dívida (mesma regra de lib/finance/debts.ts).
-create view debts_overview with (security_invoker = true) as
+create or replace view debts_overview with (security_invoker = true) as
 select
   d.*,
   coalesce(c.open_cents, 0) as open_charges_cents,
@@ -315,7 +328,7 @@ left join lateral (
 --   agiota: juros do mês = principal × taxa, a partir de accrual_start_month
 --   conta em atraso com taxa: multa única no mês do vencimento original
 --                             + juros simples ao mês sobre o valor original, a partir do mês seguinte
-create function accrue_charges(p_today date default today_sp()) returns integer
+create or replace function accrue_charges(p_today date default today_sp()) returns integer
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -376,7 +389,7 @@ end;
 $$;
 
 -- Registra um pagamento e atualiza saldo, parcelas e status numa transação.
-create function register_payment(p_debt_id uuid, p_paid_on date, p_amount_cents bigint, p_notes text default null)
+create or replace function register_payment(p_debt_id uuid, p_paid_on date, p_amount_cents bigint, p_notes text default null)
 returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -458,7 +471,7 @@ end;
 $$;
 
 -- Desfaz o pagamento mais recente de uma dívida (lançamento errado).
-create function undo_last_payment(p_debt_id uuid) returns void
+create or replace function undo_last_payment(p_debt_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -493,7 +506,7 @@ end;
 $$;
 
 -- Carrega as dívidas do seed (outubro/2026) na casa do usuário, se ela ainda não tiver dívidas.
-create function load_seed_debts() returns integer
+create or replace function load_seed_debts() returns integer
 language plpgsql security invoker set search_path = public as $$
 declare
   h uuid := current_household_id();
@@ -544,9 +557,9 @@ grant execute on function register_payment(uuid, date, bigint, text), undo_last_
 -- ===== 20261025000003_costs.sql =====
 -- Etapa 3: custos fixos mensais e gastos variáveis.
 
-create type cost_category as enum ('moradia', 'alimentacao', 'carro', 'assinaturas', 'saude', 'pessoal', 'lazer', 'outros');
+do $$ begin create type cost_category as enum ('moradia', 'alimentacao', 'carro', 'assinaturas', 'saude', 'pessoal', 'lazer', 'outros'); exception when duplicate_object then null; end $$;
 
-create table fixed_costs (
+create table if not exists fixed_costs (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
@@ -562,9 +575,9 @@ create table fixed_costs (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index fixed_costs_household on fixed_costs (household_id);
+create index if not exists fixed_costs_household on fixed_costs (household_id);
 
-create table variable_expenses (
+create table if not exists variable_expenses (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   spent_on date not null,
@@ -575,18 +588,20 @@ create table variable_expenses (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index variable_expenses_household_date on variable_expenses (household_id, spent_on);
+create index if not exists variable_expenses_household_date on variable_expenses (household_id, spent_on);
 
 alter table fixed_costs enable row level security;
 alter table variable_expenses enable row level security;
 
+drop policy if exists "membros" on fixed_costs;
 create policy "membros" on fixed_costs for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros" on variable_expenses;
 create policy "membros" on variable_expenses for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 
 -- Responsável / quem gastou (coluna passada como argumento) precisa ser membro da casa, ou null = casa.
-create function check_member_ref() returns trigger
+create or replace function check_member_ref() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   ref uuid := (to_jsonb(new) ->> tg_argv[0])::uuid;
@@ -602,14 +617,16 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists fixed_costs_member_ref on fixed_costs;
 create trigger fixed_costs_member_ref before insert or update on fixed_costs
   for each row execute function check_member_ref('owner_user_id');
+drop trigger if exists variable_expenses_member_ref on variable_expenses;
 create trigger variable_expenses_member_ref before insert or update on variable_expenses
   for each row execute function check_member_ref('spent_by');
 
 -- Custos fixos do seed (outubro/2026). Total R$ 10.931,00.
 -- Aluguel, condomínio, água, luz e terapia contam a partir de nov/2026 (os de outubro estão nas dívidas).
-create function load_seed_fixed_costs() returns integer
+create or replace function load_seed_fixed_costs() returns integer
 language plpgsql security invoker set search_path = public as $$
 declare
   h uuid := current_household_id();
@@ -656,9 +673,9 @@ grant execute on function load_seed_fixed_costs() to authenticated;
 -- ===== 20261025000004_income.sql =====
 -- Etapa 4: renda — Uber do David (diário) e entradas da Paola (salário e outras).
 
-create type income_source as enum ('salario', 'outros');
+do $$ begin create type income_source as enum ('salario', 'outros'); exception when duplicate_object then null; end $$;
 
-create table uber_days (
+create table if not exists uber_days (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   worked_on date not null,
@@ -670,7 +687,7 @@ create table uber_days (
   unique (household_id, worked_on)
 );
 
-create table income_entries (
+create table if not exists income_entries (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   received_on date not null,
@@ -681,18 +698,20 @@ create table income_entries (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index income_entries_household_date on income_entries (household_id, received_on);
+create index if not exists income_entries_household_date on income_entries (household_id, received_on);
 
 alter table uber_days enable row level security;
 alter table income_entries enable row level security;
 
+drop policy if exists "membros" on uber_days;
 create policy "membros" on uber_days for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros" on income_entries;
 create policy "membros" on income_entries for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 
 -- impede mover de casa (uber_days) e valida quem recebeu (income_entries)
-create function lock_household() returns trigger
+create or replace function lock_household() returns trigger
 language plpgsql as $$
 begin
   if new.household_id <> old.household_id then
@@ -701,17 +720,19 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists uber_days_lock on uber_days;
 create trigger uber_days_lock before update on uber_days for each row execute function lock_household();
+drop trigger if exists income_entries_member_ref on income_entries;
 create trigger income_entries_member_ref before insert or update on income_entries
   for each row execute function check_member_ref('earner_user_id');
 
 -- ===== 20261025000005_negotiations.sql =====
 -- Etapa 7: negociações (histórico de contatos e propostas) e conversão da dívida ao aceitar.
 
-create type negotiation_status as enum ('aberta', 'aceita', 'recusada');
-create type negotiation_entry_kind as enum ('contato', 'proposta_feita', 'proposta_recebida');
+do $$ begin create type negotiation_status as enum ('aberta', 'aceita', 'recusada'); exception when duplicate_object then null; end $$;
+do $$ begin create type negotiation_entry_kind as enum ('contato', 'proposta_feita', 'proposta_recebida'); exception when duplicate_object then null; end $$;
 
-create table negotiations (
+create table if not exists negotiations (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -721,11 +742,11 @@ create table negotiations (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index negotiations_debt on negotiations (debt_id);
+create index if not exists negotiations_debt on negotiations (debt_id);
 -- no máximo uma negociação aberta por dívida
-create unique index negotiations_one_open on negotiations (debt_id) where status = 'aberta';
+create unique index if not exists negotiations_one_open on negotiations (debt_id) where status = 'aberta';
 
-create table negotiation_entries (
+create table if not exists negotiation_entries (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   negotiation_id uuid not null references negotiations (id) on delete cascade,
@@ -738,10 +759,10 @@ create table negotiation_entries (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index negotiation_entries_negotiation on negotiation_entries (negotiation_id, occurred_on);
+create index if not exists negotiation_entries_negotiation on negotiation_entries (negotiation_id, occurred_on);
 
 -- Foto da dívida antes de cada mudança de formato (mantém o histórico).
-create table debt_revisions (
+create table if not exists debt_revisions (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -750,20 +771,23 @@ create table debt_revisions (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index debt_revisions_debt on debt_revisions (debt_id, created_at);
+create index if not exists debt_revisions_debt on debt_revisions (debt_id, created_at);
 
 alter table negotiations enable row level security;
 alter table negotiation_entries enable row level security;
 alter table debt_revisions enable row level security;
 
+drop policy if exists "membros" on negotiations;
 create policy "membros" on negotiations for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros" on negotiation_entries;
 create policy "membros" on negotiation_entries for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_revisions;
 create policy "membros leem" on debt_revisions for select using (is_household_member(household_id));
 
 -- A negociação e seus lançamentos precisam ser da mesma casa da dívida.
-create function negotiation_consistency() returns trigger
+create or replace function negotiation_consistency() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if tg_table_name = 'negotiations' then
@@ -778,13 +802,15 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists negotiations_consistency on negotiations;
 create trigger negotiations_consistency before insert or update on negotiations
   for each row execute function negotiation_consistency();
+drop trigger if exists negotiation_entries_consistency on negotiation_entries;
 create trigger negotiation_entries_consistency before insert or update on negotiation_entries
   for each row execute function negotiation_consistency();
 
 -- Abre negociação e marca a dívida como "em negociação".
-create function open_negotiation(p_debt_id uuid) returns uuid
+create or replace function open_negotiation(p_debt_id uuid) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -807,7 +833,7 @@ end;
 $$;
 
 -- Encerra sem acordo: negociação e propostas abertas ficam recusadas; dívida volta ao status normal.
-create function close_negotiation(p_negotiation_id uuid) returns void
+create or replace function close_negotiation(p_negotiation_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   n negotiations;
@@ -829,7 +855,7 @@ $$;
 -- Aceita uma proposta: guarda a foto da dívida, perdoa juros/multas em aberto e converte a dívida
 -- em parcelada (valor ÷ parcelas; com taxa mensal = parcelada com juros). O histórico de pagamentos,
 -- juros já pagos e negociação continuam ligados à mesma dívida.
-create function accept_proposal(
+create or replace function accept_proposal(
   p_entry_id uuid,
   p_amount_cents bigint,
   p_installments integer,
@@ -907,7 +933,7 @@ grant execute on function open_negotiation(uuid), close_negotiation(uuid),
 -- ===== 20261025000006_alerts.sql =====
 -- Etapa 8: alertas por e-mail (registro para não repetir envio) e destinatários.
 
-create table alert_log (
+create table if not exists alert_log (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -919,11 +945,12 @@ create table alert_log (
 );
 
 alter table alert_log enable row level security;
+drop policy if exists "membro vê os próprios alertas" on alert_log;
 create policy "membro vê os próprios alertas" on alert_log for select using (user_id = auth.uid());
 -- escrita só pelo servidor (service role, que ignora RLS)
 
 -- Destinatários dos alertas: membros com e-mail ativado. Só o servidor (service role) chama.
-create function alert_recipients()
+create or replace function alert_recipients()
 returns table (household_id uuid, user_id uuid, email text, display_name text, alert_days_before smallint)
 language sql stable security definer set search_path = public, auth as $$
   select m.household_id, m.user_id, u.email::text, m.display_name, m.alert_days_before
@@ -944,4 +971,3 @@ grant select, insert, update, delete on all tables in schema public to authentic
 -- funções usadas dentro das políticas de RLS e das telas
 grant execute on function is_household_member(uuid), current_household_id(), today_sp(), fmt_brl(bigint)
   to authenticated, service_role;
-

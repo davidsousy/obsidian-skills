@@ -15,9 +15,20 @@ const TABLES = [
   "variable_expenses", "uber_days", "income_entries", "negotiations", "negotiation_entries", "debt_revisions", "alert_log",
 ];
 
+/** "https://abcd.supabase.co" → "Projeto: abcd"; banco local → o endereço. */
+function projectLabel(url: string): string {
+  const host = new URL(url).hostname;
+  return host.endsWith(".supabase.co") ? `Projeto: ${host.split(".")[0]}` : `Banco local: ${host}`;
+}
+
 async function runChecks(): Promise<Check[]> {
   const checks: Check[] = [
-    { label: "Endereço do Supabase (NEXT_PUBLIC_SUPABASE_URL)", ok: Boolean(supabaseUrl()) },
+    {
+      label: "Endereço do Supabase (NEXT_PUBLIC_SUPABASE_URL)",
+      ok: Boolean(supabaseUrl()),
+      // o código do projeto é público (vai no endereço); serve para conferir se é o mesmo projeto ligado ao GitHub
+      detail: supabaseUrl() ? projectLabel(supabaseUrl()!) : undefined,
+    },
     { label: "Chave pública do Supabase (ANON ou PUBLISHABLE)", ok: Boolean(supabasePublicKey()) },
     { label: "Chave secreta do Supabase (SERVICE_ROLE ou SECRET)", ok: Boolean(supabaseSecretKey()) },
     { label: "Alertas por e-mail: CRON_SECRET e RESEND_API_KEY (opcional)", ok: process.env.CRON_SECRET && process.env.RESEND_API_KEY ? true : null, detail: "Sem eles o app funciona; só os e-mails ficam desligados." },
@@ -61,7 +72,9 @@ async function runChecks(): Promise<Check[]> {
   checks.push({
     label: TABLES_LABEL,
     ok: missing.length === 0,
-    detail: missing.length ? `Faltando: ${missing.join(", ")}. Rode supabase/setup.sql no SQL Editor.` : undefined,
+    detail: missing.length
+      ? `Faltando: ${missing.join(", ")}. Rode supabase/setup.sql no SQL Editor ou ligue a integração GitHub do Supabase (Deploy to production) neste mesmo projeto.`
+      : undefined,
   });
   if (missing.length) return checks;
 

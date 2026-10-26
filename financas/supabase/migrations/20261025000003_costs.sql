@@ -1,8 +1,8 @@
 -- Etapa 3: custos fixos mensais e gastos variáveis.
 
-create type cost_category as enum ('moradia', 'alimentacao', 'carro', 'assinaturas', 'saude', 'pessoal', 'lazer', 'outros');
+do $$ begin create type cost_category as enum ('moradia', 'alimentacao', 'carro', 'assinaturas', 'saude', 'pessoal', 'lazer', 'outros'); exception when duplicate_object then null; end $$;
 
-create table fixed_costs (
+create table if not exists fixed_costs (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
@@ -18,9 +18,9 @@ create table fixed_costs (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index fixed_costs_household on fixed_costs (household_id);
+create index if not exists fixed_costs_household on fixed_costs (household_id);
 
-create table variable_expenses (
+create table if not exists variable_expenses (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   spent_on date not null,
@@ -31,18 +31,20 @@ create table variable_expenses (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index variable_expenses_household_date on variable_expenses (household_id, spent_on);
+create index if not exists variable_expenses_household_date on variable_expenses (household_id, spent_on);
 
 alter table fixed_costs enable row level security;
 alter table variable_expenses enable row level security;
 
+drop policy if exists "membros" on fixed_costs;
 create policy "membros" on fixed_costs for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros" on variable_expenses;
 create policy "membros" on variable_expenses for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 
 -- Responsável / quem gastou (coluna passada como argumento) precisa ser membro da casa, ou null = casa.
-create function check_member_ref() returns trigger
+create or replace function check_member_ref() returns trigger
 language plpgsql security definer set search_path = public as $$
 declare
   ref uuid := (to_jsonb(new) ->> tg_argv[0])::uuid;
@@ -58,14 +60,16 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists fixed_costs_member_ref on fixed_costs;
 create trigger fixed_costs_member_ref before insert or update on fixed_costs
   for each row execute function check_member_ref('owner_user_id');
+drop trigger if exists variable_expenses_member_ref on variable_expenses;
 create trigger variable_expenses_member_ref before insert or update on variable_expenses
   for each row execute function check_member_ref('spent_by');
 
 -- Custos fixos do seed (outubro/2026). Total R$ 10.931,00.
 -- Aluguel, condomínio, água, luz e terapia contam a partir de nov/2026 (os de outubro estão nas dívidas).
-create function load_seed_fixed_costs() returns integer
+create or replace function load_seed_fixed_costs() returns integer
 language plpgsql security invoker set search_path = public as $$
 declare
   h uuid := current_household_id();

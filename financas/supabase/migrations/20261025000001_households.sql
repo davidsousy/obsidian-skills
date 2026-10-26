@@ -1,9 +1,9 @@
 -- Etapa 1: casa (household), membros e RLS.
 -- Todos os dados do sistema pertencem a uma casa; só membros da casa leem e escrevem.
 
-create type car_cost_allocation as enum ('por_hora', 'por_dia');
+do $$ begin create type car_cost_allocation as enum ('por_hora', 'por_dia'); exception when duplicate_object then null; end $$;
 
-create table households (
+create table if not exists households (
   id uuid primary key default gen_random_uuid(),
   name text not null check (length(trim(name)) > 0),
   target_date date,
@@ -19,7 +19,7 @@ create table households (
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
 
-create table household_members (
+create table if not exists household_members (
   household_id uuid not null references households (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
   display_name text not null check (length(trim(display_name)) > 0),
@@ -30,10 +30,10 @@ create table household_members (
 );
 
 -- Um usuário pertence a no máximo uma casa (simplifica o app: a casa do usuário é única).
-create unique index household_members_one_house_per_user on household_members (user_id);
+create unique index if not exists household_members_one_house_per_user on household_members (user_id);
 
 -- Usada em todas as políticas. security definer evita recursão de RLS em household_members.
-create function is_household_member(h uuid) returns boolean
+create or replace function is_household_member(h uuid) returns boolean
 language sql stable security definer set search_path = public as $$
   select exists (
     select 1 from household_members where household_id = h and user_id = auth.uid()
@@ -41,7 +41,7 @@ language sql stable security definer set search_path = public as $$
 $$;
 
 -- Casa do usuário logado (ou null).
-create function current_household_id() returns uuid
+create or replace function current_household_id() returns uuid
 language sql stable security definer set search_path = public as $$
   select household_id from household_members where user_id = auth.uid();
 $$;
@@ -49,21 +49,25 @@ $$;
 alter table households enable row level security;
 alter table household_members enable row level security;
 
+drop policy if exists "membros leem a casa" on households;
 create policy "membros leem a casa" on households
   for select using (is_household_member(id));
+drop policy if exists "membros alteram a casa" on households;
 create policy "membros alteram a casa" on households
   for update using (is_household_member(id)) with check (is_household_member(id));
 -- Sem insert/delete direto: criação só via create_household().
 
+drop policy if exists "membros veem os membros da casa" on household_members;
 create policy "membros veem os membros da casa" on household_members
   for select using (is_household_member(household_id));
 -- Cada um edita só as próprias preferências (nome, alertas).
+drop policy if exists "membro edita a si mesmo" on household_members;
 create policy "membro edita a si mesmo" on household_members
   for update using (user_id = auth.uid()) with check (user_id = auth.uid());
 -- Sem insert direto: entrada só via create_household() / join_household().
 
 -- O membro não pode trocar de casa via update.
-create function household_members_lock_keys() returns trigger
+create or replace function household_members_lock_keys() returns trigger
 language plpgsql as $$
 begin
   if new.household_id <> old.household_id or new.user_id <> old.user_id then
@@ -72,11 +76,12 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists household_members_lock_keys on household_members;
 create trigger household_members_lock_keys before update on household_members
   for each row execute function household_members_lock_keys();
 
 -- O invite_code só pode ser trocado por regenerate_invite_code().
-create function households_lock_invite() returns trigger
+create or replace function households_lock_invite() returns trigger
 language plpgsql as $$
 begin
   if new.invite_code <> old.invite_code and current_setting('app.regenerating_invite', true) is distinct from 'on' then
@@ -85,10 +90,11 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists households_lock_invite on households;
 create trigger households_lock_invite before update on households
   for each row execute function households_lock_invite();
 
-create function create_household(p_name text, p_display_name text) returns uuid
+create or replace function create_household(p_name text, p_display_name text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid;
@@ -105,7 +111,7 @@ begin
 end;
 $$;
 
-create function join_household(p_invite_code text, p_display_name text) returns uuid
+create or replace function join_household(p_invite_code text, p_display_name text) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid;
@@ -125,7 +131,7 @@ begin
 end;
 $$;
 
-create function regenerate_invite_code() returns text
+create or replace function regenerate_invite_code() returns text
 language plpgsql security definer set search_path = public as $$
 declare
   h uuid := current_household_id();

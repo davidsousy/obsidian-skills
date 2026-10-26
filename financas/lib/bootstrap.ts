@@ -15,7 +15,7 @@ const ALREADY_SEEDED = /já tem (dívidas|custos)/i;
 
 function setupMessage(message: string): string {
   if (/relation .* does not exist|could not find the (table|function)|schema cache/i.test(message)) {
-    return "O banco ainda não foi preparado: rode o arquivo supabase/setup.sql no SQL Editor do Supabase.";
+    return "O banco ainda não foi preparado: rode o arquivo supabase/setup.sql no SQL Editor do Supabase (ou ligue a integração GitHub do Supabase com “Deploy to production”).";
   }
   return message;
 }

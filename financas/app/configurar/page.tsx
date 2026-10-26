@@ -21,7 +21,8 @@ export default function ConfigurarPage() {
           (região São Paulo). As variáveis do banco são criadas sozinhas.
         </li>
         <li>
-          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>supabase/setup.sql</code> e rode (uma vez só).
+          No Supabase, abra o <strong>SQL Editor</strong>, cole o conteúdo de <code>supabase/setup.sql</code> e rode (ou ligue a
+          integração GitHub do Supabase com <em>Deploy to production</em>, que aplica as migrações sozinha).
         </li>
         <li>
           Na Vercel, faça um novo deploy (<strong>Deployments → Redeploy</strong>).

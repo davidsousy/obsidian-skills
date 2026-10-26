@@ -84,7 +84,11 @@ npm run lint
    Se o botão der erro na Vercel, use este link sem o Supabase e adicione o banco depois pelo *Storage*:
    [link reserva](https://vercel.com/new/clone?repository-url=https%3A%2F%2Fgithub.com%2Fdavidsousy%2Fobsidian-skills%2Ftree%2Fapp-financas%2Ffinancas&project-name=financas-da-casa&repository-name=financas-da-casa).
 3. Quando o deploy terminar, abra o Supabase (Vercel → Storage → Supabase → *Open in Supabase*) → **SQL Editor**,
-   cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (uma vez só).
+   cole o conteúdo de [`supabase/setup.sql`](supabase/setup.sql) e clique em *Run* (pode rodar de novo sem problema).
+   **Ou**, no Supabase: *Project Settings → Integrations → GitHub* → conecte o repositório `financas-da-casa`
+   (diretório do Supabase `.`, branch de produção `main`, *Deploy to production* ligado). A cada push no `main` o
+   Supabase aplica sozinho as migrações de `supabase/migrations` (todas podem rodar de novo sem erro).
+   O `/diagnostico` mostra qual projeto do Supabase o app usa: precisa ser o mesmo conectado ao GitHub.
 4. Pronto: abra a URL. O app já abre no Painel. Se algo faltar, `/diagnostico` diz o quê.
 
 ### Jeito manual

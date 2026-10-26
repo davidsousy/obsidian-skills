@@ -1,6 +1,6 @@
 -- Etapa 8: alertas por e-mail (registro para não repetir envio) e destinatários.
 
-create table alert_log (
+create table if not exists alert_log (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   user_id uuid not null references auth.users (id) on delete cascade,
@@ -12,11 +12,12 @@ create table alert_log (
 );
 
 alter table alert_log enable row level security;
+drop policy if exists "membro vê os próprios alertas" on alert_log;
 create policy "membro vê os próprios alertas" on alert_log for select using (user_id = auth.uid());
 -- escrita só pelo servidor (service role, que ignora RLS)
 
 -- Destinatários dos alertas: membros com e-mail ativado. Só o servidor (service role) chama.
-create function alert_recipients()
+create or replace function alert_recipients()
 returns table (household_id uuid, user_id uuid, email text, display_name text, alert_days_before smallint)
 language sql stable security definer set search_path = public, auth as $$
   select m.household_id, m.user_id, u.email::text, m.display_name, m.alert_days_before

@@ -1,9 +1,9 @@
 -- Etapa 7: negociações (histórico de contatos e propostas) e conversão da dívida ao aceitar.
 
-create type negotiation_status as enum ('aberta', 'aceita', 'recusada');
-create type negotiation_entry_kind as enum ('contato', 'proposta_feita', 'proposta_recebida');
+do $$ begin create type negotiation_status as enum ('aberta', 'aceita', 'recusada'); exception when duplicate_object then null; end $$;
+do $$ begin create type negotiation_entry_kind as enum ('contato', 'proposta_feita', 'proposta_recebida'); exception when duplicate_object then null; end $$;
 
-create table negotiations (
+create table if not exists negotiations (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -13,11 +13,11 @@ create table negotiations (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index negotiations_debt on negotiations (debt_id);
+create index if not exists negotiations_debt on negotiations (debt_id);
 -- no máximo uma negociação aberta por dívida
-create unique index negotiations_one_open on negotiations (debt_id) where status = 'aberta';
+create unique index if not exists negotiations_one_open on negotiations (debt_id) where status = 'aberta';
 
-create table negotiation_entries (
+create table if not exists negotiation_entries (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   negotiation_id uuid not null references negotiations (id) on delete cascade,
@@ -30,10 +30,10 @@ create table negotiation_entries (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index negotiation_entries_negotiation on negotiation_entries (negotiation_id, occurred_on);
+create index if not exists negotiation_entries_negotiation on negotiation_entries (negotiation_id, occurred_on);
 
 -- Foto da dívida antes de cada mudança de formato (mantém o histórico).
-create table debt_revisions (
+create table if not exists debt_revisions (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -42,20 +42,23 @@ create table debt_revisions (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index debt_revisions_debt on debt_revisions (debt_id, created_at);
+create index if not exists debt_revisions_debt on debt_revisions (debt_id, created_at);
 
 alter table negotiations enable row level security;
 alter table negotiation_entries enable row level security;
 alter table debt_revisions enable row level security;
 
+drop policy if exists "membros" on negotiations;
 create policy "membros" on negotiations for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros" on negotiation_entries;
 create policy "membros" on negotiation_entries for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_revisions;
 create policy "membros leem" on debt_revisions for select using (is_household_member(household_id));
 
 -- A negociação e seus lançamentos precisam ser da mesma casa da dívida.
-create function negotiation_consistency() returns trigger
+create or replace function negotiation_consistency() returns trigger
 language plpgsql security definer set search_path = public as $$
 begin
   if tg_table_name = 'negotiations' then
@@ -70,13 +73,15 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists negotiations_consistency on negotiations;
 create trigger negotiations_consistency before insert or update on negotiations
   for each row execute function negotiation_consistency();
+drop trigger if exists negotiation_entries_consistency on negotiation_entries;
 create trigger negotiation_entries_consistency before insert or update on negotiation_entries
   for each row execute function negotiation_consistency();
 
 -- Abre negociação e marca a dívida como "em negociação".
-create function open_negotiation(p_debt_id uuid) returns uuid
+create or replace function open_negotiation(p_debt_id uuid) returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -99,7 +104,7 @@ end;
 $$;
 
 -- Encerra sem acordo: negociação e propostas abertas ficam recusadas; dívida volta ao status normal.
-create function close_negotiation(p_negotiation_id uuid) returns void
+create or replace function close_negotiation(p_negotiation_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   n negotiations;
@@ -121,7 +126,7 @@ $$;
 -- Aceita uma proposta: guarda a foto da dívida, perdoa juros/multas em aberto e converte a dívida
 -- em parcelada (valor ÷ parcelas; com taxa mensal = parcelada com juros). O histórico de pagamentos,
 -- juros já pagos e negociação continuam ligados à mesma dívida.
-create function accept_proposal(
+create or replace function accept_proposal(
   p_entry_id uuid,
   p_amount_cents bigint,
   p_installments integer,

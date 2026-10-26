@@ -10,11 +10,11 @@
 -- o excedente reduz o principal. Os juros do mês M são lançados uma vez, sobre o principal do momento
 -- do lançamento (início do ciclo); abatimento de principal no meio do mês só reduz o mês seguinte.
 
-create type debt_kind as enum ('parcelada_sem_juros', 'parcelada_com_juros', 'juros_sobre_principal', 'conta_em_atraso');
-create type debt_status as enum ('em_dia', 'em_atraso', 'em_negociacao', 'quitada');
-create type charge_kind as enum ('juros', 'multa');
+do $$ begin create type debt_kind as enum ('parcelada_sem_juros', 'parcelada_com_juros', 'juros_sobre_principal', 'conta_em_atraso'); exception when duplicate_object then null; end $$;
+do $$ begin create type debt_status as enum ('em_dia', 'em_atraso', 'em_negociacao', 'quitada'); exception when duplicate_object then null; end $$;
+do $$ begin create type charge_kind as enum ('juros', 'multa'); exception when duplicate_object then null; end $$;
 
-create table debts (
+create table if not exists debts (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   name text not null check (length(trim(name)) > 0),
@@ -58,9 +58,9 @@ create table debts (
     end
   )
 );
-create index debts_household on debts (household_id);
+create index if not exists debts_household on debts (household_id);
 
-create table debt_charges (
+create table if not exists debt_charges (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -73,9 +73,9 @@ create table debt_charges (
   created_at timestamptz not null default now(),
   unique (debt_id, kind, reference_month)
 );
-create index debt_charges_debt on debt_charges (debt_id);
+create index if not exists debt_charges_debt on debt_charges (debt_id);
 
-create table debt_payments (
+create table if not exists debt_payments (
   id uuid primary key default gen_random_uuid(),
   household_id uuid not null references households (id) on delete cascade,
   debt_id uuid not null references debts (id) on delete cascade,
@@ -88,10 +88,10 @@ create table debt_payments (
   created_at timestamptz not null default now(),
   created_by uuid default auth.uid() references auth.users (id) on delete set null
 );
-create index debt_payments_debt on debt_payments (debt_id, created_at);
+create index if not exists debt_payments_debt on debt_payments (debt_id, created_at);
 
 -- Quanto de cada pagamento foi para cada juros/multa (permite desfazer o pagamento com exatidão).
-create table debt_payment_allocations (
+create table if not exists debt_payment_allocations (
   payment_id uuid not null references debt_payments (id) on delete cascade,
   charge_id uuid not null references debt_charges (id) on delete cascade,
   household_id uuid not null references households (id) on delete cascade,
@@ -105,15 +105,19 @@ alter table debt_charges enable row level security;
 alter table debt_payments enable row level security;
 alter table debt_payment_allocations enable row level security;
 
+drop policy if exists "membros" on debts;
 create policy "membros" on debts for all
   using (is_household_member(household_id)) with check (is_household_member(household_id));
 -- Juros, pagamentos e alocações: leitura direta; escrita só pelas funções abaixo (mantém saldos consistentes).
+drop policy if exists "membros leem" on debt_charges;
 create policy "membros leem" on debt_charges for select using (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_payments;
 create policy "membros leem" on debt_payments for select using (is_household_member(household_id));
+drop policy if exists "membros leem" on debt_payment_allocations;
 create policy "membros leem" on debt_payment_allocations for select using (is_household_member(household_id));
 
 -- household_id e os campos de saldo não mudam por update direto (só pelas funções).
-create function debts_guard() returns trigger
+create or replace function debts_guard() returns trigger
 language plpgsql as $$
 begin
   if new.household_id <> old.household_id then
@@ -123,20 +127,21 @@ begin
   return new;
 end;
 $$;
+drop trigger if exists debts_guard on debts;
 create trigger debts_guard before update on debts for each row execute function debts_guard();
 
 -- Data de hoje em São Paulo.
-create function today_sp() returns date
+create or replace function today_sp() returns date
 language sql stable as $$ select (now() at time zone 'America/Sao_Paulo')::date $$;
 
 -- 123456 → 'R$ 1.234,56' (para mensagens de erro).
-create function fmt_brl(cents bigint) returns text
+create or replace function fmt_brl(cents bigint) returns text
 language sql immutable as $$
   select 'R$ ' || translate(to_char(cents / 100.0, 'FM999G999G999G990D00'), ',.', '.,')
 $$;
 
 -- Saldo atual de cada dívida (mesma regra de lib/finance/debts.ts).
-create view debts_overview with (security_invoker = true) as
+create or replace view debts_overview with (security_invoker = true) as
 select
   d.*,
   coalesce(c.open_cents, 0) as open_charges_cents,
@@ -163,7 +168,7 @@ left join lateral (
 --   agiota: juros do mês = principal × taxa, a partir de accrual_start_month
 --   conta em atraso com taxa: multa única no mês do vencimento original
 --                             + juros simples ao mês sobre o valor original, a partir do mês seguinte
-create function accrue_charges(p_today date default today_sp()) returns integer
+create or replace function accrue_charges(p_today date default today_sp()) returns integer
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -224,7 +229,7 @@ end;
 $$;
 
 -- Registra um pagamento e atualiza saldo, parcelas e status numa transação.
-create function register_payment(p_debt_id uuid, p_paid_on date, p_amount_cents bigint, p_notes text default null)
+create or replace function register_payment(p_debt_id uuid, p_paid_on date, p_amount_cents bigint, p_notes text default null)
 returns uuid
 language plpgsql security definer set search_path = public as $$
 declare
@@ -306,7 +311,7 @@ end;
 $$;
 
 -- Desfaz o pagamento mais recente de uma dívida (lançamento errado).
-create function undo_last_payment(p_debt_id uuid) returns void
+create or replace function undo_last_payment(p_debt_id uuid) returns void
 language plpgsql security definer set search_path = public as $$
 declare
   d debts;
@@ -341,7 +346,7 @@ end;
 $$;
 
 -- Carrega as dívidas do seed (outubro/2026) na casa do usuário, se ela ainda não tiver dívidas.
-create function load_seed_debts() returns integer
+create or replace function load_seed_debts() returns integer
 language plpgsql security invoker set search_path = public as $$
 declare
   h uuid := current_household_id();
