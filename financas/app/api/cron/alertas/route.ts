@@ -1,6 +1,7 @@
 import { createClient } from "@supabase/supabase-js";
 import { runAlerts, type SendFn } from "@/lib/alerts-job";
 import { todayISO } from "@/lib/finance/dates";
+import { supabaseSecretKey, supabaseUrl } from "@/lib/supabase/env";
 
 // Chamado todo dia pelo Vercel Cron (vercel.json). Envia avisos de vencimento por e-mail via Resend.
 // Sem RESEND_API_KEY, roda em modo simulação (mostra o que seria enviado, sem enviar nem registrar).
@@ -9,7 +10,7 @@ export async function GET(request: Request) {
   if (!secret || request.headers.get("authorization") !== `Bearer ${secret}`) {
     return Response.json({ error: "não autorizado" }, { status: 401 });
   }
-  const admin = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SECRET_KEY!, {
+  const admin = createClient(supabaseUrl()!, supabaseSecretKey()!, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 

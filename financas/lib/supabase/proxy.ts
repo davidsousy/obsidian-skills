@@ -1,15 +1,24 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { supabaseConfigured, supabasePublicKey, supabaseUrl } from "./env";
 
-const PUBLIC_PATHS = ["/entrar", "/api/cron"];
+const PUBLIC_PATHS = ["/entrar", "/api/cron", "/configurar"];
 
 /** Renova a sessão do Supabase a cada request e manda quem não está logado para /entrar. */
 export async function updateSession(request: NextRequest) {
+  // Sem Supabase configurado: mostra a página de configuração em vez de quebrar.
+  if (!supabaseConfigured()) {
+    if (request.nextUrl.pathname.startsWith("/configurar")) return NextResponse.next({ request });
+    const url = request.nextUrl.clone();
+    url.pathname = "/configurar";
+    url.search = "";
+    return NextResponse.redirect(url);
+  }
   let response = NextResponse.next({ request });
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY!,
+    supabaseUrl()!,
+    supabasePublicKey()!,
     {
       cookies: {
         getAll() {
